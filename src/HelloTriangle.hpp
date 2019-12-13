@@ -14,6 +14,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <cstdint>
 #include <string.h>
 #include <cstring>
 #include <set>
@@ -26,6 +27,8 @@ static const int WIDTH  = 800;
 static const int HEIGTH = 600;
 
 const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
+const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
 #ifdef NDEBUG
   const bool ENABLE_VALIDATION_LAYERS = false;
 #else
@@ -44,6 +47,14 @@ typedef struct
 
 } QueueFamilyIndices_t;
 
+typedef struct
+{
+  VkSurfaceCapabilitiesKHR        capabilities;
+  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<VkPresentModeKHR>   presentModes;
+
+} SwapChainDetails_t;
+
 class HelloTriangle
 {
 public:
@@ -56,10 +67,15 @@ private:
   VkSurfaceKHR m_surface;
 
   VkInstance       m_vkInstance;
-  VkPhysicalDevice m_physicalDevice; // Implicity destroyed alongside m_vkInstance
+  VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
   VkDevice         m_logicalDevice;
-  VkQueue          m_graphicsQueue; // Implicity destroyed alongside m_logicalDevice
-  VkQueue          m_presentQueue; // Implicity destroyed alongside m_logicalDevice
+  VkQueue          m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
+  VkQueue          m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
+
+  VkSwapchainKHR       m_swapChain;
+  std::vector<VkImage> m_swapChainImages; // Implicitly destroyed alongside m_swapChain
+  VkFormat             m_swapChainImageFormat;
+  VkExtent2D           m_swapChainExtent;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -78,11 +94,19 @@ private:
 
   QueueFamilyIndices_t FindQueueFamilies(VkPhysicalDevice device);
 
-  // Validation layers
+  // Validation layers and extensions
   bool CheckValidationSupport();
+  bool CheckExtensionSupport(VkPhysicalDevice device);
   std::vector<const char*> GetRequiredExtensions();
   void PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
   void InitDebugMessenger();
+
+  // Swapchain
+  SwapChainDetails_t QuerySwapChainSupport(VkPhysicalDevice device);
+  VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+  VkPresentModeKHR   ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availableModes);
+  VkExtent2D         ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+  void               CreateSwapChain();
 
   static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
       VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,

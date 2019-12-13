@@ -1,0 +1,10 @@
+.kdev4/
+.vscode/
+build/
+*/CMakeFiles/
+
+sourceFiles
+Makefile
+CMakeCache.txt
+*.cmake
+compile_commands.json

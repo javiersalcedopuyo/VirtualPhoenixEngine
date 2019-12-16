@@ -29,6 +29,8 @@
 static const int WIDTH  = 800;
 static const int HEIGTH = 600;
 
+static const VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
+
 const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
 const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
@@ -84,6 +86,13 @@ private:
   VkRenderPass     m_renderPass;
   VkPipelineLayout m_pipelineLayout;
   VkPipeline       m_graphicsPipeline;
+  std::vector<VkFramebuffer> m_swapChainFrameBuffers;
+
+  VkCommandPool m_commandPool;
+  std::vector<VkCommandBuffer> m_commandBuffers; // Implicitly destroyed alongside m_commandPool
+
+  VkSemaphore m_semaphoreImageAvailable;
+  VkSemaphore m_semaphoreRenderFinished;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -91,6 +100,7 @@ private:
   void CreateVkInstance();
   void InitVulkan();
   void MainLoop();
+  void DrawFrame();
   void Cleanup();
 
   void CreateSurface();
@@ -120,9 +130,16 @@ private:
   // Pipeline
   void CreateRenderPass();
   void CreateGraphicsPipeline();
+  void CreateFrameBuffers();
+
+  // Command Buffers
+  void CreateCommandPool();
+  void CreateCommandBuffers();
 
   // Shaders
   VkShaderModule CreateShaderModule(const std::vector<char>& _code);
+
+  void CreateSemaphores();
 
   static std::vector<char> ReadShaderFile(const char* _fileName)
   {

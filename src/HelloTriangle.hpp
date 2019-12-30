@@ -21,23 +21,20 @@
 #include <vector>
 #include <optional>
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 //#include "Managers/DevicesManager.hpp"
 
-static const int WIDTH  = 800;
-static const int HEIGTH = 600;
+constexpr int WIDTH  = 800;
+constexpr int HEIGTH = 600;
 
-static const VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
+constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
 
 const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
 const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 #ifdef NDEBUG
-  const bool ENABLE_VALIDATION_LAYERS = false;
+  constexpr bool ENABLE_VALIDATION_LAYERS = false;
 #else
-  const bool ENABLE_VALIDATION_LAYERS = true;
+  constexpr bool ENABLE_VALIDATION_LAYERS = true;
 #endif
 
 typedef struct
@@ -107,23 +104,23 @@ private:
 
   // Device management TODO: Move to an independent manager
   void GetPhysicalDevice();
-  bool IsDeviceSuitable(VkPhysicalDevice device);
+  bool IsDeviceSuitable(VkPhysicalDevice _device);
   void CreateLogicalDevice();
 
-  QueueFamilyIndices_t FindQueueFamilies(VkPhysicalDevice device);
+  QueueFamilyIndices_t FindQueueFamilies(VkPhysicalDevice _device);
 
   // Validation layers and extensions
   bool CheckValidationSupport();
-  bool CheckExtensionSupport(VkPhysicalDevice device);
+  bool CheckExtensionSupport(VkPhysicalDevice _device);
   std::vector<const char*> GetRequiredExtensions();
-  void PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+  void PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
   void InitDebugMessenger();
 
   // Swapchain
-  SwapChainDetails_t QuerySwapChainSupport(VkPhysicalDevice device);
-  VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-  VkPresentModeKHR   ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availableModes);
-  VkExtent2D         ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+  SwapChainDetails_t QuerySwapChainSupport(VkPhysicalDevice _device);
+  VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
+  VkPresentModeKHR   ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
+  VkExtent2D         ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
   void               CreateSwapChain();
   void               CreateImageViews();
 

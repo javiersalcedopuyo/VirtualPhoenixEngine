@@ -24,10 +24,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 }
 
 HelloTriangle::HelloTriangle() : m_window(nullptr) {}
-HelloTriangle::~HelloTriangle()
-{
-  //delete m_window;
-}
+HelloTriangle::~HelloTriangle() {}
 
 void HelloTriangle::Run()
 {
@@ -143,20 +140,20 @@ void HelloTriangle::CreateLogicalDevice()
   vkGetDeviceQueue(m_logicalDevice, queueFamilyIndices.presentFamily.value(), 0, &m_presentQueue);
 }
 
-bool HelloTriangle::IsDeviceSuitable(VkPhysicalDevice device)
+bool HelloTriangle::IsDeviceSuitable(VkPhysicalDevice _device)
 {
-  const QueueFamilyIndices_t queueFamilyIndices = FindQueueFamilies(device);
+  const QueueFamilyIndices_t queueFamilyIndices = FindQueueFamilies(_device);
 
   VkPhysicalDeviceProperties properties;
   VkPhysicalDeviceFeatures   features;
 
-  vkGetPhysicalDeviceProperties(device, &properties);
-  vkGetPhysicalDeviceFeatures(device, &features);
+  vkGetPhysicalDeviceProperties(_device, &properties);
+  vkGetPhysicalDeviceFeatures(_device, &features);
 
   bool swapChainSupported = false;
-  if (CheckExtensionSupport(device))
+  if (CheckExtensionSupport(_device))
   {
-    SwapChainDetails_t details = QuerySwapChainSupport(device);
+    SwapChainDetails_t details = QuerySwapChainSupport(_device);
     swapChainSupported = !details.formats.empty() && !details.presentModes.empty();
   }
 
@@ -221,15 +218,15 @@ void HelloTriangle::CreateVkInstance()
   }
 }
 
-QueueFamilyIndices_t HelloTriangle::FindQueueFamilies(VkPhysicalDevice device)
+QueueFamilyIndices_t HelloTriangle::FindQueueFamilies(VkPhysicalDevice _device)
 {
   QueueFamilyIndices_t result;
 
   uint32_t queueFamilyCount = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+  vkGetPhysicalDeviceQueueFamilyProperties(_device, &queueFamilyCount, nullptr);
 
   std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+  vkGetPhysicalDeviceQueueFamilyProperties(_device, &queueFamilyCount, queueFamilies.data());
 
   VkBool32 presentSupport = false;
   int i=0;
@@ -237,7 +234,7 @@ QueueFamilyIndices_t HelloTriangle::FindQueueFamilies(VkPhysicalDevice device)
   {
     if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT) result.graphicsFamily = i;
 
-    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_surface, &presentSupport);
+    vkGetPhysicalDeviceSurfaceSupportKHR(_device, i, m_surface, &presentSupport);
     if (presentSupport) result.presentFamily = i;
 
     if (result.IsComplete()) break;
@@ -322,13 +319,13 @@ bool HelloTriangle::CheckValidationSupport()
   return result;
 }
 
-bool HelloTriangle::CheckExtensionSupport(VkPhysicalDevice device)
+bool HelloTriangle::CheckExtensionSupport(VkPhysicalDevice _device)
 {
   uint32_t extensionCount = 0;
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, nullptr);
 
   std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, availableExtensions.data());
 
   extensionCount = 0;
   for (const char* extensionName : DEVICE_EXTENSIONS)
@@ -358,19 +355,19 @@ std::vector<const char*> HelloTriangle::GetRequiredExtensions()
   return extensions;
 }
 
-void HelloTriangle::PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+void HelloTriangle::PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo)
 {
-  createInfo = {};
+  _createInfo = {};
 
-  createInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+  _createInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  _createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+  _createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
                                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  createInfo.pfnUserCallback = DebugCallback;
-  createInfo.pUserData       = nullptr;
+  _createInfo.pfnUserCallback = DebugCallback;
+  _createInfo.pUserData       = nullptr;
 }
 
 void HelloTriangle::InitDebugMessenger()
@@ -386,34 +383,34 @@ void HelloTriangle::InitDebugMessenger()
   }
 }
 
-SwapChainDetails_t HelloTriangle::QuerySwapChainSupport(VkPhysicalDevice device)
+SwapChainDetails_t HelloTriangle::QuerySwapChainSupport(VkPhysicalDevice _device)
 {
   SwapChainDetails_t result;
 
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &result.capabilities);
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(_device, m_surface, &result.capabilities);
 
   uint32_t formatCount = 0;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, nullptr);
+  vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, nullptr);
   if (formatCount > 0)
   {
     result.formats.resize(formatCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, result.formats.data());
+    vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, result.formats.data());
   }
 
   uint32_t presentModeCount = 0;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, nullptr);
+  vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, nullptr);
   if (presentModeCount > 0)
   {
     result.presentModes.resize(presentModeCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, result.presentModes.data());
+    vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, result.presentModes.data());
   }
 
   return result;
 }
 
-VkSurfaceFormatKHR HelloTriangle::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+VkSurfaceFormatKHR HelloTriangle::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
 {
-  for (const VkSurfaceFormatKHR& format : availableFormats)
+  for (const VkSurfaceFormatKHR& format : _availableFormats)
   {
     // We'll use sRGB as color space and RGB as color format
     if (format.format == VK_FORMAT_B8G8R8_UNORM &&
@@ -423,12 +420,12 @@ VkSurfaceFormatKHR HelloTriangle::ChooseSwapSurfaceFormat(const std::vector<VkSu
     }
   }
 
-  return availableFormats[0];
+  return _availableFormats[0];
 }
 
-VkPresentModeKHR HelloTriangle::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availableModes)
+VkPresentModeKHR HelloTriangle::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes)
 {
-  for (const VkPresentModeKHR& mode : availableModes)
+  for (const VkPresentModeKHR& mode : _availableModes)
   { // Try to get the Mailbox mode
     if (mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
   }
@@ -437,16 +434,16 @@ VkPresentModeKHR HelloTriangle::ChooseSwapPresentMode(const std::vector<VkPresen
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D HelloTriangle::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+VkExtent2D HelloTriangle::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities)
 {
-  if (capabilities.currentExtent.width != UINT32_MAX) return capabilities.currentExtent;
+  if (_capabilities.currentExtent.width != UINT32_MAX) return _capabilities.currentExtent;
 
   VkExtent2D result = {WIDTH, HEIGTH};
 
-  result.width = std::max(capabilities.minImageExtent.width,
-                          std::min(capabilities.maxImageExtent.width, result.width));
-  result.height = std::max(capabilities.minImageExtent.height,
-                          std::min(capabilities.maxImageExtent.height, result.height));
+  result.width = std::max(_capabilities.minImageExtent.width,
+                          std::min(_capabilities.maxImageExtent.width, result.width));
+  result.height = std::max(_capabilities.minImageExtent.height,
+                          std::min(_capabilities.maxImageExtent.height, result.height));
 
   return result;
 }

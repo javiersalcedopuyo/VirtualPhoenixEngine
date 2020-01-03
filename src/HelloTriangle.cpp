@@ -23,7 +23,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
   if (func) func(instance, debugMessenger, pAllocator);
 }
 
-HelloTriangle::HelloTriangle() : m_window(nullptr) {}
+HelloTriangle::HelloTriangle() : m_window(nullptr), m_currentFrame(0) {}
 HelloTriangle::~HelloTriangle() {}
 
 void HelloTriangle::Run()
@@ -60,7 +60,7 @@ void HelloTriangle::InitVulkan()
   CreateFrameBuffers();
   CreateCommandPool();
   CreateCommandBuffers();
-  CreateSemaphores();
+  CreateSyncObjects();
 }
 
 void HelloTriangle::CreateSurface()
@@ -239,7 +239,7 @@ QueueFamilyIndices_t HelloTriangle::FindQueueFamilies(VkPhysicalDevice _device)
 
     if (result.IsComplete()) break;
 
-    i++;
+    ++i;
   }
 
   return result;
@@ -247,14 +247,24 @@ QueueFamilyIndices_t HelloTriangle::FindQueueFamilies(VkPhysicalDevice _device)
 
 void HelloTriangle::DrawFrame()
 {
-  uint32_t imageIdx;
+  vkWaitForFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
+  uint32_t imageIdx;
   // TODO: Add error handling
   vkAcquireNextImageKHR(m_logicalDevice, m_swapChain, UINT64_MAX,
-                        m_semaphoreImageAvailable, VK_NULL_HANDLE, &imageIdx);
+                        m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIdx);
 
-  VkSemaphore waitSemaphores[]   = {m_semaphoreImageAvailable};
-  VkSemaphore signalSemaphores[] = {m_semaphoreRenderFinished};
+  // Check if a previous frame is using this image. Wait if so.
+  if (m_imagesInFlight[imageIdx] != VK_NULL_HANDLE)
+    vkWaitForFences(m_logicalDevice, 1, &m_imagesInFlight[imageIdx], VK_TRUE, UINT64_MAX);
+
+  // Mark the image as in use
+  m_imagesInFlight[imageIdx] = m_inFlightFences[m_currentFrame];
+
+  vkResetFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame]);
+
+  VkSemaphore waitSemaphores[]      = {m_imageAvailableSemaphores[m_currentFrame]};
+  VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
   VkSubmitInfo submitInfo = {};
@@ -267,17 +277,22 @@ void HelloTriangle::DrawFrame()
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores    = signalSemaphores;
 
-  if (vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+  if (vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to submit draw command buffer!");
 
+  VkSwapchainKHR swapChains[] = {m_swapChain};
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  presentInfo.swapchainCount   = 1;
-  presentInfo.pSwapchains      = &m_swapChain;
-  presentInfo.pImageIndices    = &imageIdx;
-  presentInfo.pResults         = nullptr;
+  presentInfo.waitSemaphoreCount = 1;
+  presentInfo.pWaitSemaphores    = signalSemaphores;
+  presentInfo.swapchainCount     = 1;
+  presentInfo.pSwapchains        = swapChains;
+  presentInfo.pImageIndices      = &imageIdx;
+  presentInfo.pResults           = nullptr;
 
   vkQueuePresentKHR(m_presentQueue, &presentInfo); // TODO: Add error handling
+
+  m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void HelloTriangle::MainLoop()
@@ -334,7 +349,7 @@ bool HelloTriangle::CheckExtensionSupport(VkPhysicalDevice _device)
     {
       if (!strcmp(extensionName, extension.extensionName))
       {
-        extensionCount++;
+        ++extensionCount;
       }
     }
   }
@@ -361,11 +376,11 @@ void HelloTriangle::PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _
 
   _createInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   _createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
   _createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+                                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
   _createInfo.pfnUserCallback = DebugCallback;
   _createInfo.pUserData       = nullptr;
 }
@@ -510,7 +525,7 @@ void HelloTriangle::CreateImageViews()
 {
   m_swapChainImageViews.resize(m_swapChainImages.size());
 
-  for(size_t i=0; i<m_swapChainImages.size(); i++)
+  for(size_t i=0; i<m_swapChainImages.size(); ++i)
   {
     VkImageViewCreateInfo createInfo = {};
     createInfo.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -767,7 +782,7 @@ void HelloTriangle::CreateFrameBuffers()
 {
   m_swapChainFrameBuffers.resize(m_swapChainImageViews.size());
 
-  for (size_t i=0; i<m_swapChainImageViews.size(); i++)
+  for (size_t i=0; i<m_swapChainImageViews.size(); ++i)
   {
     VkImageView attachments[] = { m_swapChainImageViews[i] };
 
@@ -813,7 +828,7 @@ void HelloTriangle::CreateCommandBuffers()
     throw std::runtime_error("ERROR: Failed to allocate command buffers!");
 
   // Record the command buffer TODO: Refactor into own function
-  for (size_t i=0; i<m_commandBuffers.size(); i++)
+  for (size_t i=0; i<m_commandBuffers.size(); ++i)
   {
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -843,15 +858,32 @@ void HelloTriangle::CreateCommandBuffers()
   }
 }
 
-void HelloTriangle::CreateSemaphores()
+void HelloTriangle::CreateSyncObjects()
 {
-  VkSemaphoreCreateInfo createInfo = {};
-  createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+  m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+  m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+  m_imagesInFlight.resize(m_swapChainImages.size(), VK_NULL_HANDLE);
 
-  if (vkCreateSemaphore(m_logicalDevice, &createInfo, nullptr, &m_semaphoreImageAvailable) != VK_SUCCESS ||
-      vkCreateSemaphore(m_logicalDevice, &createInfo, nullptr, &m_semaphoreRenderFinished) != VK_SUCCESS)
+  VkSemaphoreCreateInfo semaphoreCI = {};
+  semaphoreCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+  VkFenceCreateInfo fencesCI = {};
+  fencesCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fencesCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {
-    throw std::runtime_error("Failed to create semaphores!");
+    if (vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS ||
+        vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS)
+    {
+      throw std::runtime_error("Failed to create semaphores!");
+    }
+
+    if (vkCreateFence(m_logicalDevice, &fencesCI, nullptr, &m_inFlightFences[i]) != VK_SUCCESS)
+    {
+      throw std::runtime_error("Failed to create fences!");
+    }
   }
 }
 
@@ -860,8 +892,12 @@ void HelloTriangle::Cleanup()
   if (ENABLE_VALIDATION_LAYERS)
     DestroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
 
-  vkDestroySemaphore(m_logicalDevice, m_semaphoreImageAvailable, nullptr);
-  vkDestroySemaphore(m_logicalDevice, m_semaphoreRenderFinished, nullptr);
+  for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
+  {
+    vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores[i], nullptr);
+    vkDestroySemaphore(m_logicalDevice, m_renderFinishedSemaphores[i], nullptr);
+    vkDestroyFence(m_logicalDevice, m_inFlightFences[i], nullptr);
+  }
   vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
   for (VkFramebuffer b : m_swapChainFrameBuffers) vkDestroyFramebuffer(m_logicalDevice, b, nullptr);
   vkDestroyPipeline(m_logicalDevice, m_graphicsPipeline, nullptr);

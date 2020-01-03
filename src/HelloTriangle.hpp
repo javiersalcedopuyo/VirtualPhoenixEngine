@@ -25,6 +25,7 @@
 
 constexpr int WIDTH  = 800;
 constexpr int HEIGTH = 600;
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
 
@@ -88,8 +89,11 @@ private:
   VkCommandPool m_commandPool;
   std::vector<VkCommandBuffer> m_commandBuffers; // Implicitly destroyed alongside m_commandPool
 
-  VkSemaphore m_semaphoreImageAvailable;
-  VkSemaphore m_semaphoreRenderFinished;
+  size_t m_currentFrame;
+  std::vector<VkSemaphore> m_imageAvailableSemaphores;
+  std::vector<VkSemaphore> m_renderFinishedSemaphores;
+  std::vector<VkFence>     m_inFlightFences;
+  std::vector<VkFence>     m_imagesInFlight;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -136,7 +140,7 @@ private:
   // Shaders
   VkShaderModule CreateShaderModule(const std::vector<char>& _code);
 
-  void CreateSemaphores();
+  void CreateSyncObjects();
 
   static std::vector<char> ReadShaderFile(const char* _fileName)
   {

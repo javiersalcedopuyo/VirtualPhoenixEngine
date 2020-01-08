@@ -75,6 +75,7 @@ private:
   VkQueue          m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
   VkQueue          m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
 
+  bool                     m_frameBufferResized;
   VkSwapchainKHR           m_swapChain;
   VkFormat                 m_swapChainImageFormat;
   VkExtent2D               m_swapChainExtent;
@@ -102,7 +103,7 @@ private:
   void InitVulkan();
   void MainLoop();
   void DrawFrame();
-  void Cleanup();
+  void CleanUp();
 
   void CreateSurface();
 
@@ -126,6 +127,8 @@ private:
   VkPresentModeKHR   ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
   VkExtent2D         ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
   void               CreateSwapChain();
+  void               CleanUpSwapChain();
+  void               RecreateSwapChain();
   void               CreateImageViews();
 
   // Pipeline
@@ -141,6 +144,15 @@ private:
   VkShaderModule CreateShaderModule(const std::vector<char>& _code);
 
   void CreateSyncObjects();
+
+  static void FramebufferResizeCallback(GLFWwindow* _window, int _width, int _height)
+  {
+    HelloTriangle* app = reinterpret_cast<HelloTriangle*>(glfwGetWindowUserPointer(_window));
+    app->m_frameBufferResized = true;
+    // Just so the compiler doesn't complain TODO: Whitelist this
+    ++_width;
+    ++_height;
+  }
 
   static std::vector<char> ReadShaderFile(const char* _fileName)
   {

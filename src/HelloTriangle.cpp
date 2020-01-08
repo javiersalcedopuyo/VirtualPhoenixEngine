@@ -23,7 +23,11 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
   if (func) func(instance, debugMessenger, pAllocator);
 }
 
-HelloTriangle::HelloTriangle() : m_window(nullptr), m_currentFrame(0) {}
+HelloTriangle::HelloTriangle() :
+  m_window(nullptr),
+  m_frameBufferResized(false),
+  m_currentFrame(0)
+{}
 HelloTriangle::~HelloTriangle() {}
 
 void HelloTriangle::Run()
@@ -31,7 +35,7 @@ void HelloTriangle::Run()
   InitWindow();
   InitVulkan();
   MainLoop();
-  Cleanup();
+  CleanUp();
 }
 
 void HelloTriangle::InitWindow()
@@ -40,10 +44,11 @@ void HelloTriangle::InitWindow()
 
   // Don't create a OpenGL context
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  // Disable resizable windows for now
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
   m_window = glfwCreateWindow(WIDTH, HEIGTH, "Vulkan Hello Triangle", nullptr, nullptr);
+
+  glfwSetWindowUserPointer(m_window, this);
+  glfwSetFramebufferSizeCallback(m_window, FramebufferResizeCallback);
 }
 
 void HelloTriangle::InitVulkan()
@@ -250,9 +255,17 @@ void HelloTriangle::DrawFrame()
   vkWaitForFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
   uint32_t imageIdx;
-  // TODO: Add error handling
-  vkAcquireNextImageKHR(m_logicalDevice, m_swapChain, UINT64_MAX,
-                        m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIdx);
+  VkResult result = vkAcquireNextImageKHR(m_logicalDevice, m_swapChain,
+                                          UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame],
+                                          VK_NULL_HANDLE, &imageIdx);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR)
+  {
+    RecreateSwapChain();
+    return;
+  }
+  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    throw std::runtime_error("ERROR: Failed to acquire swap chain image!");
 
   // Check if a previous frame is using this image. Wait if so.
   if (m_imagesInFlight[imageIdx] != VK_NULL_HANDLE)
@@ -260,8 +273,6 @@ void HelloTriangle::DrawFrame()
 
   // Mark the image as in use
   m_imagesInFlight[imageIdx] = m_inFlightFences[m_currentFrame];
-
-  vkResetFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame]);
 
   VkSemaphore waitSemaphores[]      = {m_imageAvailableSemaphores[m_currentFrame]};
   VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
@@ -277,6 +288,8 @@ void HelloTriangle::DrawFrame()
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores    = signalSemaphores;
 
+  vkResetFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame]);
+
   if (vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to submit draw command buffer!");
 
@@ -290,7 +303,14 @@ void HelloTriangle::DrawFrame()
   presentInfo.pImageIndices      = &imageIdx;
   presentInfo.pResults           = nullptr;
 
-  vkQueuePresentKHR(m_presentQueue, &presentInfo); // TODO: Add error handling
+  result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_frameBufferResized)
+  {
+    RecreateSwapChain();
+    m_frameBufferResized = false;
+  }
+  else if (result != VK_SUCCESS)
+    throw std::runtime_error("ERROR: Failed to present swap chain image");
 
   m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -453,7 +473,10 @@ VkExtent2D HelloTriangle::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capa
 {
   if (_capabilities.currentExtent.width != UINT32_MAX) return _capabilities.currentExtent;
 
-  VkExtent2D result = {WIDTH, HEIGTH};
+  int width=0, height=0;
+  glfwGetFramebufferSize(m_window, &width, &height);
+
+  VkExtent2D result = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
   result.width = std::max(_capabilities.minImageExtent.width,
                           std::min(_capabilities.maxImageExtent.width, result.width));
@@ -518,6 +541,40 @@ void HelloTriangle::CreateSwapChain()
   vkGetSwapchainImagesKHR(m_logicalDevice, m_swapChain, &imageCount, nullptr);
   m_swapChainImages.resize(imageCount);
   vkGetSwapchainImagesKHR(m_logicalDevice, m_swapChain, &imageCount, m_swapChainImages.data());
+}
+
+void HelloTriangle::CleanUpSwapChain()
+{
+  for (VkFramebuffer b : m_swapChainFrameBuffers) vkDestroyFramebuffer(m_logicalDevice, b, nullptr);
+  vkFreeCommandBuffers(m_logicalDevice, m_commandPool,
+                       static_cast<uint32_t>(m_commandBuffers.size()), m_commandBuffers.data());
+  vkDestroyPipeline(m_logicalDevice, m_graphicsPipeline, nullptr);
+  vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr);
+  vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
+  for (VkImageView iv : m_swapChainImageViews) vkDestroyImageView(m_logicalDevice, iv, nullptr);
+  vkDestroySwapchainKHR(m_logicalDevice, m_swapChain, nullptr);
+}
+
+void HelloTriangle::RecreateSwapChain()
+{
+  int width=0, height=0;
+  glfwGetFramebufferSize(m_window, &width, &height);
+  while (width == 0 || height == 0)
+  { // If the window is minimized, wait until it's in the foreground again
+    glfwGetFramebufferSize(m_window, &width, &height);
+    glfwWaitEvents();
+  }
+
+  vkDeviceWaitIdle(m_logicalDevice);
+
+  CleanUpSwapChain();
+
+  CreateSwapChain();
+  CreateImageViews();
+  CreateRenderPass();
+  CreateGraphicsPipeline();
+  CreateFrameBuffers();
+  CreateCommandBuffers();
 }
 
 // Creates an image view for each image in the swap chain.
@@ -887,7 +944,7 @@ void HelloTriangle::CreateSyncObjects()
   }
 }
 
-void HelloTriangle::Cleanup()
+void HelloTriangle::CleanUp()
 {
   if (ENABLE_VALIDATION_LAYERS)
     DestroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
@@ -898,13 +955,8 @@ void HelloTriangle::Cleanup()
     vkDestroySemaphore(m_logicalDevice, m_renderFinishedSemaphores[i], nullptr);
     vkDestroyFence(m_logicalDevice, m_inFlightFences[i], nullptr);
   }
+  CleanUpSwapChain();
   vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
-  for (VkFramebuffer b : m_swapChainFrameBuffers) vkDestroyFramebuffer(m_logicalDevice, b, nullptr);
-  vkDestroyPipeline(m_logicalDevice, m_graphicsPipeline, nullptr);
-  vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr);
-  vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
-  for (VkImageView iv : m_swapChainImageViews) vkDestroyImageView(m_logicalDevice, iv, nullptr);
-  vkDestroySwapchainKHR(m_logicalDevice, m_swapChain, nullptr);
   vkDestroyDevice(m_logicalDevice, nullptr);
   vkDestroySurfaceKHR(m_vkInstance, m_surface, nullptr);
   vkDestroyInstance(m_vkInstance, nullptr);

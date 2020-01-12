@@ -56,12 +56,12 @@ void VulkanInstanceManager::createVkInstance()
   else createInfo.enabledLayerCount = 0;
 
   // Additional debug messenger to use during the instance creation and destruction
-  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
   if (ENABLE_VALIDATION_LAYERS)
   {
     createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
     createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
 
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
     populateDebugMessenger(debugCreateInfo);
     createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugCreateInfo);
   }

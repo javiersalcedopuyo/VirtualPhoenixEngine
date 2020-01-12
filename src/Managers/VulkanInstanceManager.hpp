@@ -23,35 +23,34 @@ const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_
 
 class VulkanInstanceManager
 {
-private:
-  VkInstance m_vkInstance;
-  VkDebugUtilsMessengerEXT m_debugMessenger;
-
 public:
   VulkanInstanceManager() {};
   ~VulkanInstanceManager() {};
 
   void createVkInstance();
+  void cleanUp();
 
-  inline VkInstance  getVkInstance() { return m_vkInstance; }
+  inline VkInstance  getVkInstance()    { return m_vkInstance; }
   inline VkInstance& getVkInstanceRef() { return m_vkInstance; }
 
-  // Validation layers and extensions
-  bool checkValidationSupport();
   bool checkExtensionSupport(VkPhysicalDevice _device);
-  std::vector<const char*> getRequiredExtensions();
-  void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
   void initDebugMessenger();
 
-  VkResult createDebugUtilsMessengerEXT (VkInstance instance,
-                                         const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-                                         const VkAllocationCallbacks* pAllocator,
-                                         VkDebugUtilsMessengerEXT* pDebugMessenger);
+private:
+  VkInstance m_vkInstance;
+  VkDebugUtilsMessengerEXT m_debugMessenger;
+
+  std::vector<const char*> getRequiredExtensions();
+  void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
+  bool checkValidationSupport();
+
+  VkResult createDebugUtilsMessengerEXT(VkInstance instance,
+                                        const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+                                        const VkAllocationCallbacks* pAllocator,
+                                        VkDebugUtilsMessengerEXT* pDebugMessenger);
   void destroyDebugUtilsMessengerEXT(VkInstance instance,
                                      VkDebugUtilsMessengerEXT debugMessenger,
                                      const VkAllocationCallbacks* pAllocator);
-
-  void cleanUp();
 
   static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
       VkDebugUtilsMessageSeverityFlagBitsEXT _messageSeverity,
@@ -69,7 +68,5 @@ public:
 
     return VK_FALSE;
   }
-
 };
-
 #endif

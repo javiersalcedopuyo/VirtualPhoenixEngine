@@ -1,11 +1,6 @@
 #ifndef HELLO_TRIANGLE_HPP
 #define HELLO_TRIANGLE_HPP
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-// Error management
-#include <stdexcept>
-#include <iostream>
 // Lambdas
 #include <functional>
 // EXIT_SUCCESS and EXIT_FAILURES
@@ -15,28 +10,16 @@
 // Max int values
 #include <cstdint>
 // General use
-#include <string.h>
-#include <cstring>
 #include <set>
-#include <vector>
 #include <optional>
 
-//#include "Managers/DevicesManager.hpp"
+#include "Managers/VulkanInstanceManager.hpp"
 
 constexpr int WIDTH  = 800;
 constexpr int HEIGTH = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
-
-const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
-const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
-#ifdef NDEBUG
-  constexpr bool ENABLE_VALIDATION_LAYERS = false;
-#else
-  constexpr bool ENABLE_VALIDATION_LAYERS = true;
-#endif
 
 typedef struct
 {
@@ -61,19 +44,25 @@ typedef struct
 class HelloTriangle
 {
 public:
-  HelloTriangle();
-  ~HelloTriangle();
+  HelloTriangle(VulkanInstanceManager& vkInstanceManager) :
+    m_window(nullptr),
+    m_vkInstanceManager(vkInstanceManager),
+    m_frameBufferResized(false),
+    m_currentFrame(0)
+  {};
+  ~HelloTriangle() {}
+
   void Run();
 
 private:
   GLFWwindow*  m_window;
   VkSurfaceKHR m_surface;
 
-  VkInstance       m_vkInstance;
-  VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
-  VkDevice         m_logicalDevice;
-  VkQueue          m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
-  VkQueue          m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
+  VulkanInstanceManager& m_vkInstanceManager;
+  VkPhysicalDevice       m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
+  VkDevice               m_logicalDevice;
+  VkQueue                m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
+  VkQueue                m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
 
   bool                     m_frameBufferResized;
   VkSwapchainKHR           m_swapChain;
@@ -96,10 +85,7 @@ private:
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
 
-  VkDebugUtilsMessengerEXT m_debugMessenger;
-
   void InitWindow();
-  void CreateVkInstance();
   void InitVulkan();
   void MainLoop();
   void DrawFrame();
@@ -113,13 +99,6 @@ private:
   void CreateLogicalDevice();
 
   QueueFamilyIndices_t FindQueueFamilies(VkPhysicalDevice _device);
-
-  // Validation layers and extensions
-  bool CheckValidationSupport();
-  bool CheckExtensionSupport(VkPhysicalDevice _device);
-  std::vector<const char*> GetRequiredExtensions();
-  void PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
-  void InitDebugMessenger();
 
   // Swapchain
   SwapChainDetails_t QuerySwapChainSupport(VkPhysicalDevice _device);
@@ -170,23 +149,6 @@ private:
     file.close();
 
     return buffer;
-  };
-
-  static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-      VkDebugUtilsMessageSeverityFlagBitsEXT _messageSeverity,
-      VkDebugUtilsMessageTypeFlagsEXT _messageType,
-      const VkDebugUtilsMessengerCallbackDataEXT* _pCallbackData,
-      void* _pUserData)
-  {
-    if (_messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-    {
-      std::cerr << "Validation layer: " << _pCallbackData->pMessage << std::endl;
-      // Just to avoid compilation errors, not real functionality yet.
-      std::cerr << "Message Type: " << _messageType << std::endl;
-      if (_pUserData) std::cerr << "User Data exists!" << std::endl;
-    }
-
-    return VK_FALSE;
   };
 };
 #endif

@@ -1,35 +1,5 @@
 #include "HelloTriangle.hpp"
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
-                                      const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-                                      const VkAllocationCallbacks* pAllocator,
-                                      VkDebugUtilsMessengerEXT* pDebugMessenger)
-{
-  VkResult result = VK_ERROR_EXTENSION_NOT_PRESENT;
-
-  auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
-
-  if (func) result = func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-
-  return result;
-}
-
-void DestroyDebugUtilsMessengerEXT(VkInstance instance,
-                                   VkDebugUtilsMessengerEXT debugMessenger,
-                                   const VkAllocationCallbacks* pAllocator)
-{
-  auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
-
-  if (func) func(instance, debugMessenger, pAllocator);
-}
-
-HelloTriangle::HelloTriangle() :
-  m_window(nullptr),
-  m_frameBufferResized(false),
-  m_currentFrame(0)
-{}
-HelloTriangle::~HelloTriangle() {}
-
 void HelloTriangle::Run()
 {
   InitWindow();
@@ -53,8 +23,8 @@ void HelloTriangle::InitWindow()
 
 void HelloTriangle::InitVulkan()
 {
-  CreateVkInstance();
-  InitDebugMessenger();
+  m_vkInstanceManager.createVkInstance();
+  m_vkInstanceManager.initDebugMessenger();
   CreateSurface();
   GetPhysicalDevice();
   CreateLogicalDevice();
@@ -70,7 +40,7 @@ void HelloTriangle::InitVulkan()
 
 void HelloTriangle::CreateSurface()
 {
-  if (glfwCreateWindowSurface(m_vkInstance, m_window, nullptr, &m_surface) != VK_SUCCESS)
+  if (glfwCreateWindowSurface(m_vkInstanceManager.getVkInstance(), m_window, nullptr, &m_surface) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create the surface window.");
 }
 
@@ -79,12 +49,12 @@ void HelloTriangle::GetPhysicalDevice()
   m_physicalDevice = VK_NULL_HANDLE;
 
   uint32_t deviceCount = 0;
-  vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, nullptr);
+  vkEnumeratePhysicalDevices(m_vkInstanceManager.getVkInstance(), &deviceCount, nullptr);
 
   if (!deviceCount) throw std::runtime_error("ERROR: No compatible GPUs found!");
 
   std::vector<VkPhysicalDevice> devices(deviceCount);
-  vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, devices.data());
+  vkEnumeratePhysicalDevices(m_vkInstanceManager.getVkInstance(), &deviceCount, devices.data());
 
   for (const VkPhysicalDevice device : devices)
   {
@@ -156,7 +126,7 @@ bool HelloTriangle::IsDeviceSuitable(VkPhysicalDevice _device)
   vkGetPhysicalDeviceFeatures(_device, &features);
 
   bool swapChainSupported = false;
-  if (CheckExtensionSupport(_device))
+  if (m_vkInstanceManager.checkExtensionSupport(_device))
   {
     SwapChainDetails_t details = QuerySwapChainSupport(_device);
     swapChainSupported = !details.formats.empty() && !details.presentModes.empty();
@@ -168,59 +138,6 @@ bool HelloTriangle::IsDeviceSuitable(VkPhysicalDevice _device)
   // For some reason, my Nvidia GTX960m is not recognized as a discrete GPU :/
   //  primusrun might be masking the GPU as an integrated
   //     && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-}
-
-void HelloTriangle::CreateVkInstance()
-{
-  if (ENABLE_VALIDATION_LAYERS && !CheckValidationSupport())
-  {
-    throw std::runtime_error("ERROR: Validation Layers requested but not available!");
-    return;
-  }
-
-  // Optional but useful info for the driver to optimize.
-  VkApplicationInfo appInfo  = {};
-  appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.pApplicationName   = "Hello Triangle";
-  appInfo.applicationVersion = VK_MAKE_VERSION(0,0,1);
-  appInfo.pEngineName        = "Phoenix Engine";
-  appInfo.apiVersion         = VK_API_VERSION_1_0;
-
-  VkInstanceCreateInfo createInfo = {};
-  createInfo.sType                = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  createInfo.pApplicationInfo     = &appInfo;
-  // Extensions
-  std::vector<const char*> extensions = GetRequiredExtensions();
-  createInfo.enabledExtensionCount    = static_cast<uint32_t>(extensions.size());
-  createInfo.ppEnabledExtensionNames  = extensions.data();
-  // Validation Layers
-  if (ENABLE_VALIDATION_LAYERS)
-  {
-    createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-  }
-  else createInfo.enabledLayerCount = 0;
-
-  // Additional debug messenger to use during the instance creation and destruction
-  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
-  if (ENABLE_VALIDATION_LAYERS)
-  {
-    createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-
-    PopulateDebugMessenger(debugCreateInfo);
-    createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugCreateInfo);
-  }
-  else
-  {
-    createInfo.enabledLayerCount = 0;
-    createInfo.pNext = nullptr;
-  }
-
-  if (vkCreateInstance(&createInfo, nullptr, &m_vkInstance) != VK_SUCCESS)
-  {
-    throw std::runtime_error("ERROR: Failed to create Vulkan instance.");
-  }
 }
 
 QueueFamilyIndices_t HelloTriangle::FindQueueFamilies(VkPhysicalDevice _device)
@@ -325,97 +242,6 @@ void HelloTriangle::MainLoop()
 
   // Wait until all drawing operations have finished before cleaning up
   vkDeviceWaitIdle(m_logicalDevice);
-}
-
-bool HelloTriangle::CheckValidationSupport()
-{
-  bool result = false;
-
-  // List all available layers
-  uint32_t layerCount = 0;
-  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-  std::vector<VkLayerProperties> availableLayers(layerCount);
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-  for (const char* layerName : VALIDATION_LAYERS)
-  {
-    for (const VkLayerProperties properties : availableLayers)
-    {
-      if (!strcmp(layerName, properties.layerName))
-      {
-        result = true;
-        break;
-      }
-    }
-    if (result) break;
-  }
-
-  return result;
-}
-
-bool HelloTriangle::CheckExtensionSupport(VkPhysicalDevice _device)
-{
-  uint32_t extensionCount = 0;
-  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, nullptr);
-
-  std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, availableExtensions.data());
-
-  extensionCount = 0;
-  for (const char* extensionName : DEVICE_EXTENSIONS)
-  {
-    for (const VkExtensionProperties extension : availableExtensions)
-    {
-      if (!strcmp(extensionName, extension.extensionName))
-      {
-        ++extensionCount;
-      }
-    }
-  }
-
-  return extensionCount == DEVICE_EXTENSIONS.size();
-}
-
-// Get the extensions required by GLFW and by the validation layers (if enabled)
-std::vector<const char*> HelloTriangle::GetRequiredExtensions()
-{
-  uint32_t extensionsCount = 0;
-  const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
-
-  std::vector<const char*> extensions(glfwExtensions, glfwExtensions + extensionsCount);
-
-  if (ENABLE_VALIDATION_LAYERS) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
-  return extensions;
-}
-
-void HelloTriangle::PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo)
-{
-  _createInfo = {};
-
-  _createInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  _createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  _createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  _createInfo.pfnUserCallback = DebugCallback;
-  _createInfo.pUserData       = nullptr;
-}
-
-void HelloTriangle::InitDebugMessenger()
-{
-  if (!ENABLE_VALIDATION_LAYERS) return;
-
-  VkDebugUtilsMessengerCreateInfoEXT createInfo;
-  PopulateDebugMessenger(createInfo);
-
-  if (CreateDebugUtilsMessengerEXT(m_vkInstance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
-  {
-    throw std::runtime_error("ERROR: Failed to set up debug messenger!");
-  }
 }
 
 SwapChainDetails_t HelloTriangle::QuerySwapChainSupport(VkPhysicalDevice _device)
@@ -946,8 +772,7 @@ void HelloTriangle::CreateSyncObjects()
 
 void HelloTriangle::CleanUp()
 {
-  if (ENABLE_VALIDATION_LAYERS)
-    DestroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
+  VkInstance& vkInstance = m_vkInstanceManager.getVkInstanceRef();
 
   for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {
@@ -958,8 +783,10 @@ void HelloTriangle::CleanUp()
   CleanUpSwapChain();
   vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
   vkDestroyDevice(m_logicalDevice, nullptr);
-  vkDestroySurfaceKHR(m_vkInstance, m_surface, nullptr);
-  vkDestroyInstance(m_vkInstance, nullptr);
+  vkDestroySurfaceKHR(vkInstance, m_surface, nullptr);
+
+  m_vkInstanceManager.cleanUp();
+
   glfwDestroyWindow(m_window);
   glfwTerminate();
 }

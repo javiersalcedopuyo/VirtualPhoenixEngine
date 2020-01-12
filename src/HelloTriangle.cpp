@@ -533,7 +533,7 @@ void HelloTriangle::CreateSwapChain()
   createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Do not blend with other windows
   createInfo.presentMode    = presentMode;
   createInfo.clipped        = VK_TRUE; // Ignore the pixels occluded by other windows
-  createInfo.oldSwapchain   = VK_NULL_HANDLE; // TODO: Add support for resizing windows
+  createInfo.oldSwapchain   = VK_NULL_HANDLE;
 
   if (vkCreateSwapchainKHR(m_logicalDevice, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create swap chain!");
@@ -772,9 +772,6 @@ void HelloTriangle::CreateGraphicsPipeline()
   colorBlending.blendConstants[1] = 0.0f; // Optional
   colorBlending.blendConstants[2] = 0.0f; // Optional
   colorBlending.blendConstants[3] = 0.0f; // Optional
-
-  // Dynamic changes (without recreating the pipeline)
-  // TODO: Resizing the viewport
 
   // Layout (aka uniforms) (For now, empty) TODO:
   VkPipelineLayoutCreateInfo layoutInfo = {};

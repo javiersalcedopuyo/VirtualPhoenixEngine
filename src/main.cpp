@@ -2,14 +2,16 @@
 
 int main()
 {
-  VulkanInstanceManager m_vkInstanceManager;
-  HelloTriangle m_app(m_vkInstanceManager);
+  VulkanInstanceManager vkInstanceManager;
+  DevicesManager        devicesManager(vkInstanceManager.getVkInstanceRef());
+
+  HelloTriangle app(vkInstanceManager, devicesManager);
 
   std::cout << "Starting..." << std::endl;
 
   try
   {
-    m_app.Run();
+    app.run();
   }
   catch(const std::exception& e)
   {

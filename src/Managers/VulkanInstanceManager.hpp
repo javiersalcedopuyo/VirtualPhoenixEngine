@@ -7,18 +7,13 @@
 #include <stdexcept>
 #include <iostream>
 
-#include <string.h>
 #include <cstring>
-
 #include <vector>
 
-const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
-const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
 #ifdef NDEBUG
-  constexpr bool ENABLE_VALIDATION_LAYERS = false;
+  const std::vector<const char*> VALIDATION_LAYERS = {};
 #else
-  constexpr bool ENABLE_VALIDATION_LAYERS = true;
+  const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
 #endif
 
 class VulkanInstanceManager
@@ -30,10 +25,8 @@ public:
   void createVkInstance();
   void cleanUp();
 
-  inline VkInstance  getVkInstance()    { return m_vkInstance; }
   inline VkInstance& getVkInstanceRef() { return m_vkInstance; }
 
-  bool checkExtensionSupport(VkPhysicalDevice _device);
   void initDebugMessenger();
 
 private:

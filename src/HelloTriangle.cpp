@@ -1,33 +1,31 @@
 #include "HelloTriangle.hpp"
 
-void HelloTriangle::Run()
+void HelloTriangle::run()
 {
-  InitWindow();
-  InitVulkan();
-  MainLoop();
-  CleanUp();
+  initWindow();
+  initVulkan();
+  mainLoop();
+  cleanUp();
 }
 
-void HelloTriangle::InitWindow()
+void HelloTriangle::initWindow()
 {
   glfwInit();
-
   // Don't create a OpenGL context
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-  m_window = glfwCreateWindow(WIDTH, HEIGTH, "Vulkan Hello Triangle", nullptr, nullptr);
-
-  glfwSetWindowUserPointer(m_window, this);
-  glfwSetFramebufferSizeCallback(m_window, FramebufferResizeCallback);
+  m_devicesManager.initWindow();
 }
 
-void HelloTriangle::InitVulkan()
+void HelloTriangle::initVulkan()
 {
   m_vkInstanceManager.createVkInstance();
   m_vkInstanceManager.initDebugMessenger();
-  CreateSurface();
-  GetPhysicalDevice();
-  CreateLogicalDevice();
+
+  m_devicesManager.createSurface();
+  m_devicesManager.createPhysicalDevice();
+  m_devicesManager.createLogicalDevice();
+
   CreateSwapChain();
   CreateImageViews();
   CreateRenderPass();
@@ -38,141 +36,14 @@ void HelloTriangle::InitVulkan()
   CreateSyncObjects();
 }
 
-void HelloTriangle::CreateSurface()
+void HelloTriangle::drawFrame()
 {
-  if (glfwCreateWindowSurface(m_vkInstanceManager.getVkInstance(), m_window, nullptr, &m_surface) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: Failed to create the surface window.");
-}
+  const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
 
-void HelloTriangle::GetPhysicalDevice()
-{
-  m_physicalDevice = VK_NULL_HANDLE;
-
-  uint32_t deviceCount = 0;
-  vkEnumeratePhysicalDevices(m_vkInstanceManager.getVkInstance(), &deviceCount, nullptr);
-
-  if (!deviceCount) throw std::runtime_error("ERROR: No compatible GPUs found!");
-
-  std::vector<VkPhysicalDevice> devices(deviceCount);
-  vkEnumeratePhysicalDevices(m_vkInstanceManager.getVkInstance(), &deviceCount, devices.data());
-
-  for (const VkPhysicalDevice device : devices)
-  {
-    if (IsDeviceSuitable(device))
-    { // For now, just take the 1st suitable device we find.
-      // TODO: Rate all available and select accordingly
-      m_physicalDevice = device;
-      break;
-    }
-  }
-
-  if (m_physicalDevice == VK_NULL_HANDLE) throw std::runtime_error("ERROR: No suitable GPUs found!");
-}
-
-void HelloTriangle::CreateLogicalDevice()
-{
-  float queuePriority = 1.0; // TODO: Avoid magic numbers
-  const QueueFamilyIndices_t queueFamilyIndices = FindQueueFamilies(m_physicalDevice);
-
-  // How many queues we want for a single family (for now just one with graphics capabilities)
-  std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-  std::set<uint32_t> uniqueQueueFamilies = {queueFamilyIndices.graphicsFamily.value(),
-                                            queueFamilyIndices.presentFamily.value()};
-
-  for(uint32_t queueFamily : uniqueQueueFamilies)
-  {
-    VkDeviceQueueCreateInfo queueCreateInfo = {};
-    queueCreateInfo.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = queueFamily;
-    queueCreateInfo.queueCount       = 1; // TODO: Avoid magic numbers
-    queueCreateInfo.pQueuePriorities = &queuePriority;
-
-    queueCreateInfos.emplace_back(queueCreateInfo);
-  }
-
-  VkPhysicalDeviceFeatures deviceFeatures = {}; // TODO: Add fancy stuff
-
-  VkDeviceCreateInfo createInfo      = {};
-  createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  createInfo.pQueueCreateInfos       = queueCreateInfos.data();
-  createInfo.queueCreateInfoCount    = queueCreateInfos.size();
-  createInfo.pEnabledFeatures        = &deviceFeatures;
-  createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
-  // NOTE: enabledExtensionCount and ppEnabledLayerNames are ignored in modern Vulkan implementations
-  createInfo.enabledExtensionCount   = DEVICE_EXTENSIONS.size();
-  if (ENABLE_VALIDATION_LAYERS)
-  {
-    createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-  }
-  else createInfo.enabledLayerCount = 0;
-
-  if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: Failed to create logical device!");
-
-  // DOUBT: Should I move this to another place?
-  vkGetDeviceQueue(m_logicalDevice, queueFamilyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
-  vkGetDeviceQueue(m_logicalDevice, queueFamilyIndices.presentFamily.value(), 0, &m_presentQueue);
-}
-
-bool HelloTriangle::IsDeviceSuitable(VkPhysicalDevice _device)
-{
-  const QueueFamilyIndices_t queueFamilyIndices = FindQueueFamilies(_device);
-
-  VkPhysicalDeviceProperties properties;
-  VkPhysicalDeviceFeatures   features;
-
-  vkGetPhysicalDeviceProperties(_device, &properties);
-  vkGetPhysicalDeviceFeatures(_device, &features);
-
-  bool swapChainSupported = false;
-  if (m_vkInstanceManager.checkExtensionSupport(_device))
-  {
-    SwapChainDetails_t details = QuerySwapChainSupport(_device);
-    swapChainSupported = !details.formats.empty() && !details.presentModes.empty();
-  }
-
-  return features.geometryShader &&
-         swapChainSupported &&
-         queueFamilyIndices.IsComplete();
-  // For some reason, my Nvidia GTX960m is not recognized as a discrete GPU :/
-  //  primusrun might be masking the GPU as an integrated
-  //     && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-}
-
-QueueFamilyIndices_t HelloTriangle::FindQueueFamilies(VkPhysicalDevice _device)
-{
-  QueueFamilyIndices_t result;
-
-  uint32_t queueFamilyCount = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(_device, &queueFamilyCount, nullptr);
-
-  std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-  vkGetPhysicalDeviceQueueFamilyProperties(_device, &queueFamilyCount, queueFamilies.data());
-
-  VkBool32 presentSupport = false;
-  int i=0;
-  for (const auto& family : queueFamilies)
-  {
-    if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT) result.graphicsFamily = i;
-
-    vkGetPhysicalDeviceSurfaceSupportKHR(_device, i, m_surface, &presentSupport);
-    if (presentSupport) result.presentFamily = i;
-
-    if (result.IsComplete()) break;
-
-    ++i;
-  }
-
-  return result;
-}
-
-void HelloTriangle::DrawFrame()
-{
-  vkWaitForFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+  vkWaitForFences(logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
   uint32_t imageIdx;
-  VkResult result = vkAcquireNextImageKHR(m_logicalDevice, m_swapChain,
+  VkResult result = vkAcquireNextImageKHR(logicalDevice, m_swapChain,
                                           UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame],
                                           VK_NULL_HANDLE, &imageIdx);
 
@@ -186,7 +57,7 @@ void HelloTriangle::DrawFrame()
 
   // Check if a previous frame is using this image. Wait if so.
   if (m_imagesInFlight[imageIdx] != VK_NULL_HANDLE)
-    vkWaitForFences(m_logicalDevice, 1, &m_imagesInFlight[imageIdx], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(logicalDevice, 1, &m_imagesInFlight[imageIdx], VK_TRUE, UINT64_MAX);
 
   // Mark the image as in use
   m_imagesInFlight[imageIdx] = m_inFlightFences[m_currentFrame];
@@ -205,9 +76,9 @@ void HelloTriangle::DrawFrame()
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores    = signalSemaphores;
 
-  vkResetFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame]);
+  vkResetFences(logicalDevice, 1, &m_inFlightFences[m_currentFrame]);
 
-  if (vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS)
+  if (vkQueueSubmit(m_devicesManager.getGraphicsQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to submit draw command buffer!");
 
   VkSwapchainKHR swapChains[] = {m_swapChain};
@@ -220,11 +91,12 @@ void HelloTriangle::DrawFrame()
   presentInfo.pImageIndices      = &imageIdx;
   presentInfo.pResults           = nullptr;
 
-  result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_frameBufferResized)
+  result = vkQueuePresentKHR(m_devicesManager.getPresentQueue(), &presentInfo);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+      m_devicesManager.frameBufferResized())
   {
     RecreateSwapChain();
-    m_frameBufferResized = false;
+    m_devicesManager.frameBufferResized(false);
   }
   else if (result != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to present swap chain image");
@@ -232,41 +104,16 @@ void HelloTriangle::DrawFrame()
   m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void HelloTriangle::MainLoop()
+void HelloTriangle::mainLoop()
 {
-  while (!glfwWindowShouldClose(m_window))
+  while (!m_devicesManager.windowShouldClose())
   {
     glfwPollEvents();
-    DrawFrame();
+    drawFrame();
   }
 
   // Wait until all drawing operations have finished before cleaning up
-  vkDeviceWaitIdle(m_logicalDevice);
-}
-
-SwapChainDetails_t HelloTriangle::QuerySwapChainSupport(VkPhysicalDevice _device)
-{
-  SwapChainDetails_t result;
-
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(_device, m_surface, &result.capabilities);
-
-  uint32_t formatCount = 0;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, nullptr);
-  if (formatCount > 0)
-  {
-    result.formats.resize(formatCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, result.formats.data());
-  }
-
-  uint32_t presentModeCount = 0;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, nullptr);
-  if (presentModeCount > 0)
-  {
-    result.presentModes.resize(presentModeCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, result.presentModes.data());
-  }
-
-  return result;
+  vkDeviceWaitIdle(m_devicesManager.getLogicalDevice());
 }
 
 VkSurfaceFormatKHR HelloTriangle::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
@@ -300,7 +147,7 @@ VkExtent2D HelloTriangle::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capa
   if (_capabilities.currentExtent.width != UINT32_MAX) return _capabilities.currentExtent;
 
   int width=0, height=0;
-  glfwGetFramebufferSize(m_window, &width, &height);
+  glfwGetFramebufferSize(m_devicesManager.getWindow(), &width, &height);
 
   VkExtent2D result = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
@@ -314,7 +161,9 @@ VkExtent2D HelloTriangle::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capa
 
 void HelloTriangle::CreateSwapChain()
 {
-  SwapChainDetails_t swapChain = QuerySwapChainSupport(m_physicalDevice);
+  const VkDevice& logicalDevice  = m_devicesManager.getLogicalDevice();
+
+  SwapChainDetails_t swapChain = m_devicesManager.querySwapChainSupport();
 
   VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChain.formats);
   VkPresentModeKHR   presentMode   = ChooseSwapPresentMode(swapChain.presentModes);
@@ -327,7 +176,7 @@ void HelloTriangle::CreateSwapChain()
 
   VkSwapchainCreateInfoKHR createInfo = {};
   createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  createInfo.surface          = m_surface;
+  createInfo.surface          = m_devicesManager.getSurface();
   createInfo.minImageCount    = imageCount;
   createInfo.imageFormat      = surfaceFormat.format;
   createInfo.imageColorSpace  = surfaceFormat.colorSpace;
@@ -337,7 +186,7 @@ void HelloTriangle::CreateSwapChain()
   //createInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT; // Render to a separate image (for postpro)
 
   // Set how the images will be used between the graphics and presentation queues
-  QueueFamilyIndices_t indices  = FindQueueFamilies(m_physicalDevice);
+  QueueFamilyIndices_t indices  = m_devicesManager.findQueueFamilies();
   uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(),
                                    indices.presentFamily.value()};
 
@@ -359,39 +208,41 @@ void HelloTriangle::CreateSwapChain()
   createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Do not blend with other windows
   createInfo.presentMode    = presentMode;
   createInfo.clipped        = VK_TRUE; // Ignore the pixels occluded by other windows
-  createInfo.oldSwapchain   = VK_NULL_HANDLE; // TODO: Add support for resizing windows
+  createInfo.oldSwapchain   = VK_NULL_HANDLE;
 
-  if (vkCreateSwapchainKHR(m_logicalDevice, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
+  if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create swap chain!");
 
-  vkGetSwapchainImagesKHR(m_logicalDevice, m_swapChain, &imageCount, nullptr);
+  vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
   m_swapChainImages.resize(imageCount);
-  vkGetSwapchainImagesKHR(m_logicalDevice, m_swapChain, &imageCount, m_swapChainImages.data());
+  vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, m_swapChainImages.data());
 }
 
 void HelloTriangle::CleanUpSwapChain()
 {
-  for (VkFramebuffer b : m_swapChainFrameBuffers) vkDestroyFramebuffer(m_logicalDevice, b, nullptr);
-  vkFreeCommandBuffers(m_logicalDevice, m_commandPool,
+  const VkDevice logicalDevice = m_devicesManager.getLogicalDevice();
+
+  for (VkFramebuffer b : m_swapChainFrameBuffers) vkDestroyFramebuffer(logicalDevice, b, nullptr);
+  vkFreeCommandBuffers(logicalDevice, m_commandPool,
                        static_cast<uint32_t>(m_commandBuffers.size()), m_commandBuffers.data());
-  vkDestroyPipeline(m_logicalDevice, m_graphicsPipeline, nullptr);
-  vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr);
-  vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
-  for (VkImageView iv : m_swapChainImageViews) vkDestroyImageView(m_logicalDevice, iv, nullptr);
-  vkDestroySwapchainKHR(m_logicalDevice, m_swapChain, nullptr);
+  vkDestroyPipeline(logicalDevice, m_graphicsPipeline, nullptr);
+  vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
+  vkDestroyRenderPass(logicalDevice, m_renderPass, nullptr);
+  for (VkImageView iv : m_swapChainImageViews) vkDestroyImageView(logicalDevice, iv, nullptr);
+  vkDestroySwapchainKHR(logicalDevice, m_swapChain, nullptr);
 }
 
 void HelloTriangle::RecreateSwapChain()
 {
   int width=0, height=0;
-  glfwGetFramebufferSize(m_window, &width, &height);
+  glfwGetFramebufferSize(m_devicesManager.getWindow(), &width, &height);
   while (width == 0 || height == 0)
   { // If the window is minimized, wait until it's in the foreground again
-    glfwGetFramebufferSize(m_window, &width, &height);
+    glfwGetFramebufferSize(m_devicesManager.getWindow(), &width, &height);
     glfwWaitEvents();
   }
 
-  vkDeviceWaitIdle(m_logicalDevice);
+  vkDeviceWaitIdle(m_devicesManager.getLogicalDevice());
 
   CleanUpSwapChain();
 
@@ -427,8 +278,12 @@ void HelloTriangle::CreateImageViews()
     createInfo.subresourceRange.baseArrayLayer = 0;
     createInfo.subresourceRange.layerCount     = 1; // >1 for cases like VR
 
-    if (vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_swapChainImageViews[i]) != VK_SUCCESS)
+    if (vkCreateImageView(m_devicesManager.getLogicalDevice(),
+                          &createInfo, nullptr, &m_swapChainImageViews[i])
+        != VK_SUCCESS)
+    {
       throw std::runtime_error("ERROR: Failed to create image view.");
+    }
   }
 }
 
@@ -475,8 +330,11 @@ void HelloTriangle::CreateRenderPass()
   createInfo.dependencyCount = 1;
   createInfo.pDependencies   = &dependency;
 
-  if (vkCreateRenderPass(m_logicalDevice, &createInfo, nullptr, &m_renderPass) != VK_SUCCESS)
+  if (vkCreateRenderPass(m_devicesManager.getLogicalDevice(), &createInfo, nullptr, &m_renderPass)
+      != VK_SUCCESS)
+  {
     throw std::runtime_error("ERROR: Failed creating render pass!");
+  }
 }
 
 void HelloTriangle::CreateGraphicsPipeline()
@@ -599,9 +457,6 @@ void HelloTriangle::CreateGraphicsPipeline()
   colorBlending.blendConstants[2] = 0.0f; // Optional
   colorBlending.blendConstants[3] = 0.0f; // Optional
 
-  // Dynamic changes (without recreating the pipeline)
-  // TODO: Resizing the viewport
-
   // Layout (aka uniforms) (For now, empty) TODO:
   VkPipelineLayoutCreateInfo layoutInfo = {};
   layoutInfo.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -610,7 +465,9 @@ void HelloTriangle::CreateGraphicsPipeline()
   layoutInfo.pushConstantRangeCount = 0; // Optional
   layoutInfo.pPushConstantRanges    = nullptr; // Optional
 
-  if (vkCreatePipelineLayout(m_logicalDevice, &layoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS)
+  const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
+
+  if (vkCreatePipelineLayout(logicalDevice, &layoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create the pipeline layout!");
 
   // The pipeline itself!
@@ -634,7 +491,7 @@ void HelloTriangle::CreateGraphicsPipeline()
   pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE; // Optional
   pipelineInfo.basePipelineIndex   = -1; // Optional
 
-  if (vkCreateGraphicsPipelines(m_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo,
+  if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo,
                                 nullptr, &m_graphicsPipeline)
       != VK_SUCCESS)
   {
@@ -642,8 +499,8 @@ void HelloTriangle::CreateGraphicsPipeline()
   }
 
   // CLEANING //
-  vkDestroyShaderModule(m_logicalDevice, vertShaderMod, nullptr);
-  vkDestroyShaderModule(m_logicalDevice, fragShaderMod, nullptr);
+  vkDestroyShaderModule(logicalDevice, vertShaderMod, nullptr);
+  vkDestroyShaderModule(logicalDevice, fragShaderMod, nullptr);
 }
 
 VkShaderModule HelloTriangle::CreateShaderModule(const std::vector<char>& _code)
@@ -655,8 +512,11 @@ VkShaderModule HelloTriangle::CreateShaderModule(const std::vector<char>& _code)
   createInfo.codeSize = _code.size();
   createInfo.pCode    = reinterpret_cast<const uint32_t*>(_code.data());
 
-  if (vkCreateShaderModule(m_logicalDevice, &createInfo, nullptr, &result) != VK_SUCCESS)
+  if (vkCreateShaderModule(m_devicesManager.getLogicalDevice(), &createInfo, nullptr, &result)
+      != VK_SUCCESS)
+  {
     throw std::runtime_error("ERROR: Failed to create shader module!");
+  }
 
   return result;
 }
@@ -678,22 +538,29 @@ void HelloTriangle::CreateFrameBuffers()
     createInfo.height          = m_swapChainExtent.height;
     createInfo.layers          = 1;
 
-    if (vkCreateFramebuffer(m_logicalDevice, &createInfo, nullptr, &m_swapChainFrameBuffers[i]) != VK_SUCCESS)
+    if (vkCreateFramebuffer(m_devicesManager.getLogicalDevice(), &createInfo,
+                            nullptr, &m_swapChainFrameBuffers[i])
+        != VK_SUCCESS)
+    {
       throw std::runtime_error("ERROR: Failed to create the framebuffer.");
+    }
   }
 }
 
 void HelloTriangle::CreateCommandPool()
 {
-  QueueFamilyIndices_t queueFamilyIndices = FindQueueFamilies(m_physicalDevice);
+  QueueFamilyIndices_t queueFamilyIndices = m_devicesManager.findQueueFamilies();
 
   VkCommandPoolCreateInfo createInfo = {};
   createInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   createInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
   createInfo.flags            = 0; // Optional
 
-  if (vkCreateCommandPool(m_logicalDevice, &createInfo, nullptr, &m_commandPool) != VK_SUCCESS)
+  if (vkCreateCommandPool(m_devicesManager.getLogicalDevice(), &createInfo, nullptr, &m_commandPool)
+      != VK_SUCCESS)
+  {
     throw std::runtime_error("ERROR: Failed to create command pool");
+  }
 }
 
 void HelloTriangle::CreateCommandBuffers()
@@ -707,8 +574,12 @@ void HelloTriangle::CreateCommandBuffers()
   allocInfo.level       = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submited to queue, but not called from other buffers
   allocInfo.commandBufferCount = static_cast<uint32_t>(m_commandBuffers.size());
 
-  if (vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, m_commandBuffers.data()) != VK_SUCCESS)
+  if (vkAllocateCommandBuffers(m_devicesManager.getLogicalDevice(), &allocInfo,
+                               m_commandBuffers.data())
+      != VK_SUCCESS)
+  {
     throw std::runtime_error("ERROR: Failed to allocate command buffers!");
+  }
 
   // Record the command buffer TODO: Refactor into own function
   for (size_t i=0; i<m_commandBuffers.size(); ++i)
@@ -755,38 +626,39 @@ void HelloTriangle::CreateSyncObjects()
   fencesCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fencesCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
+  const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
   for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {
-    if (vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS)
+    if (vkCreateSemaphore(logicalDevice, &semaphoreCI, nullptr, &m_imageAvailableSemaphores[i])
+        != VK_SUCCESS ||
+        vkCreateSemaphore(logicalDevice, &semaphoreCI, nullptr, &m_renderFinishedSemaphores[i])
+        != VK_SUCCESS)
     {
       throw std::runtime_error("Failed to create semaphores!");
     }
 
-    if (vkCreateFence(m_logicalDevice, &fencesCI, nullptr, &m_inFlightFences[i]) != VK_SUCCESS)
+    if (vkCreateFence(logicalDevice, &fencesCI, nullptr, &m_inFlightFences[i]) != VK_SUCCESS)
     {
       throw std::runtime_error("Failed to create fences!");
     }
   }
 }
 
-void HelloTriangle::CleanUp()
+void HelloTriangle::cleanUp()
 {
-  VkInstance& vkInstance = m_vkInstanceManager.getVkInstanceRef();
+  const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
 
   for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {
-    vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores[i], nullptr);
-    vkDestroySemaphore(m_logicalDevice, m_renderFinishedSemaphores[i], nullptr);
-    vkDestroyFence(m_logicalDevice, m_inFlightFences[i], nullptr);
+    vkDestroySemaphore(logicalDevice, m_imageAvailableSemaphores[i], nullptr);
+    vkDestroySemaphore(logicalDevice, m_renderFinishedSemaphores[i], nullptr);
+    vkDestroyFence(logicalDevice, m_inFlightFences[i], nullptr);
   }
   CleanUpSwapChain();
-  vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
-  vkDestroyDevice(m_logicalDevice, nullptr);
-  vkDestroySurfaceKHR(vkInstance, m_surface, nullptr);
+  vkDestroyCommandPool(logicalDevice, m_commandPool, nullptr);
 
+  m_devicesManager.cleanUp();
   m_vkInstanceManager.cleanUp();
 
-  glfwDestroyWindow(m_window);
   glfwTerminate();
 }

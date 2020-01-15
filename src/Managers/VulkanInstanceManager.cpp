@@ -26,7 +26,7 @@ void VulkanInstanceManager::destroyDebugUtilsMessengerEXT(VkInstance instance,
 
 void VulkanInstanceManager::createVkInstance()
 {
-  if (ENABLE_VALIDATION_LAYERS && !checkValidationSupport())
+  if (!VALIDATION_LAYERS.empty() && !checkValidationSupport())
   {
     throw std::runtime_error("ERROR: Validation Layers requested but not available!");
     return;
@@ -48,7 +48,7 @@ void VulkanInstanceManager::createVkInstance()
   createInfo.enabledExtensionCount    = static_cast<uint32_t>(extensions.size());
   createInfo.ppEnabledExtensionNames  = extensions.data();
   // Validation Layers
-  if (ENABLE_VALIDATION_LAYERS)
+  if (!VALIDATION_LAYERS.empty())
   {
     createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
     createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
@@ -56,7 +56,7 @@ void VulkanInstanceManager::createVkInstance()
   else createInfo.enabledLayerCount = 0;
 
   // Additional debug messenger to use during the instance creation and destruction
-  if (ENABLE_VALIDATION_LAYERS)
+  if (!VALIDATION_LAYERS.empty())
   {
     createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
     createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
@@ -105,24 +105,6 @@ bool VulkanInstanceManager::checkValidationSupport()
   return result;
 }
 
-bool VulkanInstanceManager::checkExtensionSupport(VkPhysicalDevice _device)
-{
-  uint32_t extensionCount = 0;
-  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, nullptr);
-
-  std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, availableExtensions.data());
-
-  extensionCount = 0;
-  for (const char* extensionName : DEVICE_EXTENSIONS)
-  {
-    for (const VkExtensionProperties extension : availableExtensions)
-      if (!strcmp(extensionName, extension.extensionName)) ++extensionCount;
-  }
-
-  return extensionCount == DEVICE_EXTENSIONS.size();
-}
-
 // Get the extensions required by GLFW and by the validation layers (if enabled)
 std::vector<const char*> VulkanInstanceManager::getRequiredExtensions()
 {
@@ -131,7 +113,7 @@ std::vector<const char*> VulkanInstanceManager::getRequiredExtensions()
 
   std::vector<const char*> extensions(glfwExtensions, glfwExtensions + extensionsCount);
 
-  if (ENABLE_VALIDATION_LAYERS) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  if (!VALIDATION_LAYERS.empty()) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
   return extensions;
 }
@@ -153,7 +135,7 @@ void VulkanInstanceManager::populateDebugMessenger(VkDebugUtilsMessengerCreateIn
 
 void VulkanInstanceManager::initDebugMessenger()
 {
-  if (!ENABLE_VALIDATION_LAYERS) return;
+  if (!!VALIDATION_LAYERS.empty()) return;
 
   VkDebugUtilsMessengerCreateInfoEXT ci;
   populateDebugMessenger(ci);
@@ -164,7 +146,7 @@ void VulkanInstanceManager::initDebugMessenger()
 
 void VulkanInstanceManager::cleanUp()
 {
-  if (ENABLE_VALIDATION_LAYERS)
+  if (!VALIDATION_LAYERS.empty())
     destroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
 
   vkDestroyInstance(m_vkInstance, nullptr);

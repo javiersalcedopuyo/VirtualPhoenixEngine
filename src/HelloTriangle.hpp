@@ -10,6 +10,7 @@
 
 #include "Managers/VulkanInstanceManager.hpp"
 #include "Managers/DevicesManager.hpp"
+#include "Managers/SwapchainManager.hpp"
 
 static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 static constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -18,9 +19,11 @@ class HelloTriangle
 {
 public:
   HelloTriangle(VulkanInstanceManager& vkInstanceManager,
-                DevicesManager& devicesManager)
+                DevicesManager& devicesManager,
+                SwapchainManager& swapchainManager)
   : m_vkInstanceManager(vkInstanceManager),
     m_devicesManager(devicesManager),
+    m_swapchainManager(swapchainManager),
     m_currentFrame(0)
   {};
   ~HelloTriangle() {}
@@ -30,12 +33,7 @@ public:
 private:
   VulkanInstanceManager& m_vkInstanceManager;
   DevicesManager&        m_devicesManager;
-
-  VkSwapchainKHR           m_swapChain;
-  VkFormat                 m_swapChainImageFormat;
-  VkExtent2D               m_swapChainExtent;
-  std::vector<VkImage>     m_swapChainImages; // Implicitly destroyed alongside m_swapChain
-  std::vector<VkImageView> m_swapChainImageViews;
+  SwapchainManager&      m_swapchainManager;
 
   VkRenderPass     m_renderPass;
   VkPipelineLayout m_pipelineLayout;
@@ -57,14 +55,9 @@ private:
   void drawFrame();
   void cleanUp();
 
-  // Swapchain
-  VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
-  VkPresentModeKHR   ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
-  VkExtent2D         ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
-  void               CreateSwapChain();
-  void               CleanUpSwapChain();
-  void               RecreateSwapChain();
-  void               CreateImageViews();
+  void createSwapchain();
+  void cleanUpSwapchain();
+  void recreateSwapchain();
 
   // Pipeline
   void CreateRenderPass();

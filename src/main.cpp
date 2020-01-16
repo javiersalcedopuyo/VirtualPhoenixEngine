@@ -4,8 +4,9 @@ int main()
 {
   VulkanInstanceManager vkInstanceManager;
   DevicesManager        devicesManager(vkInstanceManager.getVkInstanceRef());
+  SwapchainManager      swapchainManager;
 
-  HelloTriangle app(vkInstanceManager, devicesManager);
+  HelloTriangle app(vkInstanceManager, devicesManager, swapchainManager);
 
   std::cout << "Starting..." << std::endl;
 

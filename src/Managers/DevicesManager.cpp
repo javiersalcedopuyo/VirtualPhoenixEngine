@@ -14,14 +14,8 @@ void DevicesManager::initWindow()
 
 void DevicesManager::createSurface()
 {
-  if (!m_window) std::cout << "NO WINDOW!!!!" << std::endl;
-  VkResult result;
-  if ((result = glfwCreateWindowSurface(m_vkInstance, m_window, nullptr, &m_surface)) != VK_SUCCESS)
-  {
-    std::string errorMsg = "ERROR: Failed to create the surface window. Error code: ";
-    errorMsg += std::to_string(static_cast<int>(result));
-    throw std::runtime_error(errorMsg.c_str());
-  }
+  if (glfwCreateWindowSurface(m_vkInstance, m_window, nullptr, &m_surface) != VK_SUCCESS)
+    throw std::runtime_error("ERROR: Failed to create the surface window.");
 }
 
 void DevicesManager::createPhysicalDevice()
@@ -105,15 +99,7 @@ bool DevicesManager::isDeviceSuitable(const VkPhysicalDevice& _device)
   vkGetPhysicalDeviceProperties(_device, &properties);
   vkGetPhysicalDeviceFeatures(_device, &features);
 
-  bool swapChainSupported = false;
-  if (checkExtensionSupportOfPhysicalDevice(_device))
-  {
-    SwapChainDetails_t details = querySwapChainSupportOfPhysicalDevice(_device);
-    swapChainSupported = !details.formats.empty() && !details.presentModes.empty();
-  }
-
   return features.geometryShader &&
-         swapChainSupported &&
          queueFamilyIndices.isComplete();
   // For some reason, my Nvidia GTX960m is not recognized as a discrete GPU :/
   //  primusrun might be masking the GPU as an integrated
@@ -144,30 +130,8 @@ QueueFamilyIndices_t DevicesManager::findQueueFamiliesForPhysicalDevice(const Vk
     ++i;
   }
 
-  return result;
-}
-
-SwapChainDetails_t DevicesManager::querySwapChainSupportOfPhysicalDevice(const VkPhysicalDevice& _device)
-{
-  SwapChainDetails_t result;
-
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(_device, m_surface, &result.capabilities);
-
-  uint32_t formatCount = 0;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, nullptr);
-  if (formatCount > 0)
-  {
-    result.formats.resize(formatCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, result.formats.data());
-  }
-
-  uint32_t presentModeCount = 0;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, nullptr);
-  if (presentModeCount > 0)
-  {
-    result.presentModes.resize(presentModeCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, result.presentModes.data());
-  }
+  m_graphicsQueueFamilyIdx = result.graphicsFamily.value();
+  m_presentQueueFamilyIdx  = result.presentFamily.value();
 
   return result;
 }

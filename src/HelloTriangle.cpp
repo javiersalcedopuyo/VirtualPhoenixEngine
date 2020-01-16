@@ -26,8 +26,9 @@ void HelloTriangle::initVulkan()
   m_devicesManager.createPhysicalDevice();
   m_devicesManager.createLogicalDevice();
 
-  CreateSwapChain();
-  CreateImageViews();
+  createSwapchain();
+  m_swapchainManager.createImageViews();
+
   CreateRenderPass();
   CreateGraphicsPipeline();
   CreateFrameBuffers();
@@ -43,13 +44,13 @@ void HelloTriangle::drawFrame()
   vkWaitForFences(logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
   uint32_t imageIdx;
-  VkResult result = vkAcquireNextImageKHR(logicalDevice, m_swapChain,
+  VkResult result = vkAcquireNextImageKHR(logicalDevice, m_swapchainManager.getSwapchainRef(),
                                           UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame],
                                           VK_NULL_HANDLE, &imageIdx);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR)
   {
-    RecreateSwapChain();
+    recreateSwapchain();
     return;
   }
   else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
@@ -81,7 +82,7 @@ void HelloTriangle::drawFrame()
   if (vkQueueSubmit(m_devicesManager.getGraphicsQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to submit draw command buffer!");
 
-  VkSwapchainKHR swapChains[] = {m_swapChain};
+  VkSwapchainKHR swapChains[] = {m_swapchainManager.getSwapchainRef()};
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   presentInfo.waitSemaphoreCount = 1;
@@ -95,7 +96,7 @@ void HelloTriangle::drawFrame()
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
       m_devicesManager.frameBufferResized())
   {
-    RecreateSwapChain();
+    recreateSwapchain();
     m_devicesManager.frameBufferResized(false);
   }
   else if (result != VK_SUCCESS)
@@ -116,109 +117,19 @@ void HelloTriangle::mainLoop()
   vkDeviceWaitIdle(m_devicesManager.getLogicalDevice());
 }
 
-VkSurfaceFormatKHR HelloTriangle::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
+void HelloTriangle::createSwapchain()
 {
-  for (const VkSurfaceFormatKHR& format : _availableFormats)
-  {
-    // We'll use sRGB as color space and RGB as color format
-    if (format.format == VK_FORMAT_B8G8R8_UNORM &&
-        format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-    {
-      return format;
-    }
-  }
+  const std::vector<uint32_t> queueFamiliesIndices = m_devicesManager.getQueueFamiliesIndices();
 
-  return _availableFormats[0];
+  m_swapchainManager.createSwapchain(m_devicesManager.getLogicalDevice(),
+                                     m_devicesManager.getPhysicalDevice(),
+                                     m_devicesManager.getSurface(),
+                                     queueFamiliesIndices[0],
+                                     queueFamiliesIndices[1],
+                                     m_devicesManager.getWindow());
 }
 
-VkPresentModeKHR HelloTriangle::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes)
-{
-  for (const VkPresentModeKHR& mode : _availableModes)
-  { // Try to get the Mailbox mode
-    if (mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
-  }
-
-  // The only guaranteed mode is FIFO
-  return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-VkExtent2D HelloTriangle::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities)
-{
-  if (_capabilities.currentExtent.width != UINT32_MAX) return _capabilities.currentExtent;
-
-  int width=0, height=0;
-  glfwGetFramebufferSize(m_devicesManager.getWindow(), &width, &height);
-
-  VkExtent2D result = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-
-  result.width = std::max(_capabilities.minImageExtent.width,
-                          std::min(_capabilities.maxImageExtent.width, result.width));
-  result.height = std::max(_capabilities.minImageExtent.height,
-                          std::min(_capabilities.maxImageExtent.height, result.height));
-
-  return result;
-}
-
-void HelloTriangle::CreateSwapChain()
-{
-  const VkDevice& logicalDevice  = m_devicesManager.getLogicalDevice();
-
-  SwapChainDetails_t swapChain = m_devicesManager.querySwapChainSupport();
-
-  VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChain.formats);
-  VkPresentModeKHR   presentMode   = ChooseSwapPresentMode(swapChain.presentModes);
-  VkExtent2D         extent        = ChooseSwapExtent(swapChain.capabilities);
-
-  m_swapChainExtent      = extent;
-  m_swapChainImageFormat = surfaceFormat.format;
-
-  uint32_t imageCount = swapChain.capabilities.minImageCount + 1;
-
-  VkSwapchainCreateInfoKHR createInfo = {};
-  createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  createInfo.surface          = m_devicesManager.getSurface();
-  createInfo.minImageCount    = imageCount;
-  createInfo.imageFormat      = surfaceFormat.format;
-  createInfo.imageColorSpace  = surfaceFormat.colorSpace;
-  createInfo.imageExtent      = extent;
-  createInfo.imageArrayLayers = 1; // Always 1 unless developing a stereoscopic 3D app
-  createInfo.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Render directly to the images
-  //createInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT; // Render to a separate image (for postpro)
-
-  // Set how the images will be used between the graphics and presentation queues
-  QueueFamilyIndices_t indices  = m_devicesManager.findQueueFamilies();
-  uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(),
-                                   indices.presentFamily.value()};
-
-  if (indices.presentFamily != indices.graphicsFamily)
-  {
-    // TODO: Manage explicit transfers and use EXCLUSIVE
-    createInfo.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
-    createInfo.queueFamilyIndexCount = 2;
-    createInfo.pQueueFamilyIndices   = queueFamilyIndices;
-  }
-  else
-  {
-    createInfo.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
-    createInfo.queueFamilyIndexCount = 0;
-    createInfo.pQueueFamilyIndices   = nullptr;
-  }
-
-  createInfo.preTransform   = swapChain.capabilities.currentTransform;
-  createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Do not blend with other windows
-  createInfo.presentMode    = presentMode;
-  createInfo.clipped        = VK_TRUE; // Ignore the pixels occluded by other windows
-  createInfo.oldSwapchain   = VK_NULL_HANDLE;
-
-  if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: Failed to create swap chain!");
-
-  vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
-  m_swapChainImages.resize(imageCount);
-  vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, m_swapChainImages.data());
-}
-
-void HelloTriangle::CleanUpSwapChain()
+void HelloTriangle::cleanUpSwapchain()
 {
   const VkDevice logicalDevice = m_devicesManager.getLogicalDevice();
 
@@ -228,11 +139,11 @@ void HelloTriangle::CleanUpSwapChain()
   vkDestroyPipeline(logicalDevice, m_graphicsPipeline, nullptr);
   vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
   vkDestroyRenderPass(logicalDevice, m_renderPass, nullptr);
-  for (VkImageView iv : m_swapChainImageViews) vkDestroyImageView(logicalDevice, iv, nullptr);
-  vkDestroySwapchainKHR(logicalDevice, m_swapChain, nullptr);
+
+  m_swapchainManager.cleanUp();
 }
 
-void HelloTriangle::RecreateSwapChain()
+void HelloTriangle::recreateSwapchain()
 {
   int width=0, height=0;
   glfwGetFramebufferSize(m_devicesManager.getWindow(), &width, &height);
@@ -244,53 +155,21 @@ void HelloTriangle::RecreateSwapChain()
 
   vkDeviceWaitIdle(m_devicesManager.getLogicalDevice());
 
-  CleanUpSwapChain();
+  cleanUpSwapchain();
 
-  CreateSwapChain();
-  CreateImageViews();
+  createSwapchain();
+  m_swapchainManager.createImageViews();
+
   CreateRenderPass();
   CreateGraphicsPipeline();
   CreateFrameBuffers();
   CreateCommandBuffers();
 }
 
-// Creates an image view for each image in the swap chain.
-void HelloTriangle::CreateImageViews()
-{
-  m_swapChainImageViews.resize(m_swapChainImages.size());
-
-  for(size_t i=0; i<m_swapChainImages.size(); ++i)
-  {
-    VkImageViewCreateInfo createInfo = {};
-    createInfo.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    createInfo.image    = m_swapChainImages[i];
-    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // 1D, 2S, 3D or Cube Map
-    createInfo.format   = m_swapChainImageFormat;
-    // We can use the components to remap the color chanels.
-    createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    // Image's purpose
-    createInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT; // Color target
-    createInfo.subresourceRange.baseMipLevel   = 0; // No mipmapping
-    createInfo.subresourceRange.levelCount     = 1;
-    createInfo.subresourceRange.baseArrayLayer = 0;
-    createInfo.subresourceRange.layerCount     = 1; // >1 for cases like VR
-
-    if (vkCreateImageView(m_devicesManager.getLogicalDevice(),
-                          &createInfo, nullptr, &m_swapChainImageViews[i])
-        != VK_SUCCESS)
-    {
-      throw std::runtime_error("ERROR: Failed to create image view.");
-    }
-  }
-}
-
 void HelloTriangle::CreateRenderPass()
 {
   VkAttachmentDescription colorAttachment = {};
-  colorAttachment.format  = m_swapChainImageFormat;
+  colorAttachment.format  = m_swapchainManager.getImageFormat();
   colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
   // Color & Depth
   colorAttachment.loadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR; // Clear before render
@@ -386,15 +265,15 @@ void HelloTriangle::CreateGraphicsPipeline()
   VkViewport viewport = {};
   viewport.x          = 0.0f;
   viewport.y          = 0.0f;
-  viewport.width      = m_swapChainExtent.width;
-  viewport.height     = m_swapChainExtent.height;
+  viewport.width      = m_swapchainManager.getImageDimensions().width;
+  viewport.height     = m_swapchainManager.getImageDimensions().height;
   viewport.minDepth   = 0.0f;
   viewport.maxDepth   = 1.0f;
 
   // Draw the full viewport
   VkRect2D scissor = {};
   scissor.offset   = {0,0};
-  scissor.extent   = m_swapChainExtent;
+  scissor.extent   = m_swapchainManager.getImageDimensions();
 
   // Combine the viewport with the scissor
   VkPipelineViewportStateCreateInfo viewportState = {};
@@ -523,19 +402,19 @@ VkShaderModule HelloTriangle::CreateShaderModule(const std::vector<char>& _code)
 
 void HelloTriangle::CreateFrameBuffers()
 {
-  m_swapChainFrameBuffers.resize(m_swapChainImageViews.size());
+  m_swapChainFrameBuffers.resize(m_swapchainManager.getNumImageViews());
 
-  for (size_t i=0; i<m_swapChainImageViews.size(); ++i)
+  for (size_t i=0; i<m_swapchainManager.getNumImageViews(); ++i)
   {
-    VkImageView attachments[] = { m_swapChainImageViews[i] };
+    VkImageView attachments[] = { m_swapchainManager.getImageViews()[i] };
 
     VkFramebufferCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     createInfo.renderPass = m_renderPass;
     createInfo.attachmentCount = 1;
     createInfo.pAttachments    = attachments;
-    createInfo.width           = m_swapChainExtent.width;
-    createInfo.height          = m_swapChainExtent.height;
+    createInfo.width           = m_swapchainManager.getImageDimensions().width;
+    createInfo.height          = m_swapchainManager.getImageDimensions().height;
     createInfo.layers          = 1;
 
     if (vkCreateFramebuffer(m_devicesManager.getLogicalDevice(), &createInfo,
@@ -598,7 +477,7 @@ void HelloTriangle::CreateCommandBuffers()
     renderPassInfo.renderPass        = m_renderPass;
     renderPassInfo.framebuffer       = m_swapChainFrameBuffers[i];
     renderPassInfo.renderArea.offset = {0,0};
-    renderPassInfo.renderArea.extent = m_swapChainExtent;
+    renderPassInfo.renderArea.extent = m_swapchainManager.getImageDimensions();
     renderPassInfo.clearValueCount   = 1;
     renderPassInfo.pClearValues      = &CLEAR_COLOR_BLACK;
 
@@ -617,7 +496,7 @@ void HelloTriangle::CreateSyncObjects()
   m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
   m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
   m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-  m_imagesInFlight.resize(m_swapChainImages.size(), VK_NULL_HANDLE);
+  m_imagesInFlight.resize(m_swapchainManager.getNumImages(), VK_NULL_HANDLE);
 
   VkSemaphoreCreateInfo semaphoreCI = {};
   semaphoreCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -654,7 +533,7 @@ void HelloTriangle::cleanUp()
     vkDestroySemaphore(logicalDevice, m_renderFinishedSemaphores[i], nullptr);
     vkDestroyFence(logicalDevice, m_inFlightFences[i], nullptr);
   }
-  CleanUpSwapChain();
+  cleanUpSwapchain();
   vkDestroyCommandPool(logicalDevice, m_commandPool, nullptr);
 
   m_devicesManager.cleanUp();

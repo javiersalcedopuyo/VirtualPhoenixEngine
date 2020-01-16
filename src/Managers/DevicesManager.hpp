@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 
 #include <cstring>
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "VulkanInstanceManager.hpp"
 
@@ -16,8 +16,8 @@ const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_
 
 typedef struct
 {
-  std::optional<uint32_t> graphicsFamily;
-  std::optional<uint32_t> presentFamily;
+  boost::optional<uint32_t> graphicsFamily;
+  boost::optional<uint32_t> presentFamily;
 
   bool isComplete() const
   {
@@ -25,14 +25,6 @@ typedef struct
   }
 
 } QueueFamilyIndices_t;
-
-typedef struct
-{
-  VkSurfaceCapabilitiesKHR        capabilities;
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR>   presentModes;
-
-} SwapChainDetails_t; // Should this even be here?
 
 class DevicesManager
 {
@@ -45,8 +37,10 @@ private:
   VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
   VkDevice         m_logicalDevice;
 
-  VkQueue m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
-  VkQueue m_presentQueue;  // Implicitly destroyed alongside m_logicalDevice
+  VkQueue  m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
+  VkQueue  m_presentQueue;  // Implicitly destroyed alongside m_logicalDevice
+  uint32_t m_graphicsQueueFamilyIdx;
+  uint32_t m_presentQueueFamilyIdx;
 
   bool isDeviceSuitable(const VkPhysicalDevice& _device);
 
@@ -63,7 +57,6 @@ private:
 
   QueueFamilyIndices_t findQueueFamiliesForPhysicalDevice(const VkPhysicalDevice& _device);
   bool checkExtensionSupportOfPhysicalDevice(const VkPhysicalDevice& _device);
-  SwapChainDetails_t querySwapChainSupportOfPhysicalDevice(const VkPhysicalDevice& _device);
 
 public:
   DevicesManager(const VkInstance& vkInstance) :
@@ -91,7 +84,10 @@ public:
   void createLogicalDevice();
 
   inline QueueFamilyIndices_t findQueueFamilies()     { return findQueueFamiliesForPhysicalDevice(m_physicalDevice); };
-  inline SwapChainDetails_t   querySwapChainSupport() { return querySwapChainSupportOfPhysicalDevice(m_physicalDevice); };
+  inline std::vector<uint32_t> getQueueFamiliesIndices()
+  {
+    return std::vector<uint32_t>{m_graphicsQueueFamilyIdx, m_presentQueueFamilyIdx};
+  }
 
   void cleanUp();
 };

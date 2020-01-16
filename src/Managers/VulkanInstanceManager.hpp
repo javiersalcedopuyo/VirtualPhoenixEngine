@@ -1,7 +1,9 @@
 #ifndef VULKAN_INSTANCE_MANAGER_HPP
 #define VULKAN_INSTANCE_MANAGER_HPP
 
-#define GLFW_INCLUDE_VULKAN
+#ifndef GLFW_INCLUDE_VULKAN
+  #define GLFW_INCLUDE_VULKAN
+#endif
 #include <GLFW/glfw3.h>
 // Error management
 #include <stdexcept>

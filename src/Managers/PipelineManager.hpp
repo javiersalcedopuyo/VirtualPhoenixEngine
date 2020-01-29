@@ -10,15 +10,17 @@
 #include <fstream>
 
 #include <vector>
-#include <boost/optional.hpp>
 
 static constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
 
 class PipelineManager
 {
 public:
-  PipelineManager() {};
-  ~PipelineManager() {};
+  PipelineManager() : m_logicalDevice(nullptr) {};
+  ~PipelineManager()
+  {
+    m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
+  };
 
   void createRenderPass(const VkFormat& _imgFormat);
   void createGraphicsPipeline(const VkExtent2D& _viewportExtent);
@@ -31,7 +33,7 @@ public:
 
   void cleanUp();
 
-  inline void setLogicalDevice(const VkDevice& _d) { m_logicalDevice.emplace(_d); }
+  inline void setLogicalDevice(const VkDevice* _d) { if (!m_logicalDevice) m_logicalDevice = _d; }
 
   // Read Only getters
   inline const VkPipeline&                 getGraphicsPipelineRO() { return m_graphicsPipeline; }
@@ -45,7 +47,7 @@ private:
   std::vector<VkFramebuffer> m_frameBuffers;
 
   // TODO: Change to a pointer
-  boost::optional<const VkDevice&> m_logicalDevice;
+  const VkDevice* m_logicalDevice;
 
   void cleanShaderModules(VkPipelineShaderStageCreateFlags);
 

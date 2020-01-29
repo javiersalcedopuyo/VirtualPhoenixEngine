@@ -26,7 +26,8 @@ void HelloTriangle::initVulkan()
   m_devicesManager.createPhysicalDevice();
   m_devicesManager.createLogicalDevice();
 
-  m_pipelineManager.setLogicalDevice(m_devicesManager.getLogicalDevice());
+  m_swapchainManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
+  m_pipelineManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
 
   createSwapchain();
   m_swapchainManager.createImageViews();
@@ -125,8 +126,7 @@ void HelloTriangle::createSwapchain()
 {
   const std::vector<uint32_t> queueFamiliesIndices = m_devicesManager.getQueueFamiliesIndices();
 
-  m_swapchainManager.createSwapchain(m_devicesManager.getLogicalDevice(),
-                                     m_devicesManager.getPhysicalDevice(),
+  m_swapchainManager.createSwapchain(m_devicesManager.getPhysicalDevice(),
                                      m_devicesManager.getSurface(),
                                      queueFamiliesIndices[0],
                                      queueFamiliesIndices[1],
@@ -158,6 +158,9 @@ void HelloTriangle::recreateSwapchain()
   vkDeviceWaitIdle(m_devicesManager.getLogicalDevice());
 
   cleanUpSwapchain();
+
+  m_swapchainManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
+  m_pipelineManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
 
   createSwapchain();
   m_swapchainManager.createImageViews();

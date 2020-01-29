@@ -26,16 +26,17 @@ SwapChainDetails_t SwapchainManager::getSwapchainDetails(const VkPhysicalDevice&
   return result;
 }
 
-void SwapchainManager::createSwapchain(const VkDevice& _logicalDevice,
-                                       const VkPhysicalDevice& _physicalDevice,
+void SwapchainManager::createSwapchain(const VkPhysicalDevice& _physicalDevice,
                                        const VkSurfaceKHR& _surface,
                                        const uint32_t& _graphicQueueFamilyIdx,
                                        const uint32_t& _presentQueueFamilyIdx,
                                        GLFWwindow* _window)
 {
-  if (!_window) throw std::runtime_error("ERROR: NULL window passed to SwapchainManager::createSwapchain!");
+  if (!m_logicalDevice)
+    throw std::runtime_error("SwapchainManager::createSwapchain - ERROR: NULL logical device!");
 
-  m_logicalDevice.emplace(_logicalDevice);
+  if (!_window)
+    throw std::runtime_error("SwapchainManager::createSwapchain - ERROR: NULL window passed to SwapchainManager::createSwapchain!");
 
   SwapChainDetails_t swapChain = getSwapchainDetails(_physicalDevice, _surface);
   if (swapChain.formats.empty() && swapChain.presentModes.empty())
@@ -81,14 +82,14 @@ void SwapchainManager::createSwapchain(const VkDevice& _logicalDevice,
     createInfo.pQueueFamilyIndices   = nullptr;
   }
 
-  if (vkCreateSwapchainKHR(_logicalDevice, &createInfo, nullptr, &m_swapchain) != VK_SUCCESS)
+  if (vkCreateSwapchainKHR(*m_logicalDevice, &createInfo, nullptr, &m_swapchain) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create swap chain!");
 
   // TODO: Move to another function
   uint32_t imageCount = swapChain.capabilities.minImageCount + 1;
-  vkGetSwapchainImagesKHR(_logicalDevice, m_swapchain, &imageCount, nullptr);
+  vkGetSwapchainImagesKHR(*m_logicalDevice, m_swapchain, &imageCount, nullptr);
   m_images.resize(imageCount);
-  vkGetSwapchainImagesKHR(_logicalDevice, m_swapchain, &imageCount, m_images.data());
+  vkGetSwapchainImagesKHR(*m_logicalDevice, m_swapchain, &imageCount, m_images.data());
 }
 
 VkSurfaceFormatKHR SwapchainManager::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
@@ -116,7 +117,8 @@ VkPresentModeKHR SwapchainManager::chooseSwapPresentMode(const std::vector<VkPre
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D SwapchainManager::getImageDimensions(const VkSurfaceCapabilitiesKHR& _capabilities, GLFWwindow* _window)
+VkExtent2D SwapchainManager::getImageDimensions(const VkSurfaceCapabilitiesKHR& _capabilities,
+                                                GLFWwindow* _window)
 {
   if (_capabilities.currentExtent.width != UINT32_MAX) return _capabilities.currentExtent;
 
@@ -136,6 +138,9 @@ VkExtent2D SwapchainManager::getImageDimensions(const VkSurfaceCapabilitiesKHR& 
 // Creates an image view for each image in the swap chain.
 void SwapchainManager::createImageViews()
 {
+  if (!m_logicalDevice)
+    throw std::runtime_error("SwapchainManager::createImageViews - ERROR: NULL logical device!");
+
   m_imageViews.resize(m_images.size());
 
   for(size_t i=0; i<m_images.size(); ++i)
@@ -157,13 +162,15 @@ void SwapchainManager::createImageViews()
     createInfo.subresourceRange.baseArrayLayer = 0;
     createInfo.subresourceRange.layerCount     = 1; // >1 for cases like VR
 
-    if (vkCreateImageView(m_logicalDevice.value(), &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
+    if (vkCreateImageView(*m_logicalDevice, &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
       throw std::runtime_error("ERROR: Failed to create image view.");
   }
 }
 
 void SwapchainManager::cleanUp()
 {
-  for (VkImageView iv : m_imageViews) vkDestroyImageView(m_logicalDevice.value(), iv, nullptr);
-  vkDestroySwapchainKHR(m_logicalDevice.value(), m_swapchain, nullptr);
+  for (VkImageView iv : m_imageViews) vkDestroyImageView(*m_logicalDevice, iv, nullptr);
+  vkDestroySwapchainKHR(*m_logicalDevice, m_swapchain, nullptr);
+
+  m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
 }

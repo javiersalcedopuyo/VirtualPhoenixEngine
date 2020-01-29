@@ -2,7 +2,7 @@
 
 void PipelineManager::createRenderPass(const VkFormat& _imgFormat)
 {
-  if (!m_logicalDevice.has_value())
+  if (!m_logicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createRenderPass - NULL logical device.");
 
   VkAttachmentDescription colorAttachment = {};
@@ -52,7 +52,7 @@ void PipelineManager::createRenderPass(const VkFormat& _imgFormat)
 
 void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
 {
-  if (!m_logicalDevice.has_value())
+  if (!m_logicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createGraphicsPipeline - NULL logical Device");
 
   // TODO: Separate the stages creation into their own functions
@@ -222,7 +222,7 @@ void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
 
 VkShaderModule PipelineManager::createShaderModule(const std::vector<char>& _code)
 {
-  if (!m_logicalDevice.has_value())
+  if (!m_logicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createShaderModule - NULL logical Device");
 
   VkShaderModule result;
@@ -262,7 +262,7 @@ std::vector<char> PipelineManager::readShaderFile(const char* _fileName)
 void PipelineManager::createFrameBuffers(const std::vector<VkImageView>& _imageViews,
                                          const VkExtent2D& _imageDimensions)
 {
-  if (!m_logicalDevice.has_value())
+  if (!m_logicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createFrameBuffers - NULL logical Device");
 
   m_frameBuffers.resize(_imageViews.size());
@@ -305,7 +305,7 @@ void PipelineManager::beginRenderPass(const VkCommandBuffer& _commandBuffer,
 
 void PipelineManager::cleanUp()
 {
-  if (!m_logicalDevice.has_value())
+  if (!m_logicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::cleanUp - NULL logical Device");
 
   for (VkFramebuffer b : m_frameBuffers)
@@ -314,4 +314,6 @@ void PipelineManager::cleanUp()
   vkDestroyPipeline(*m_logicalDevice, m_graphicsPipeline, nullptr);
   vkDestroyPipelineLayout(*m_logicalDevice, m_layout, nullptr);
   vkDestroyRenderPass(*m_logicalDevice, m_renderPass, nullptr);
+
+  m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it.
 }

@@ -11,7 +11,6 @@
 #include <iostream>
 
 #include <vector>
-#include <boost/optional.hpp>
 
 typedef struct
 {
@@ -24,16 +23,20 @@ typedef struct
 class SwapchainManager
 {
 public:
-   SwapchainManager() {};
-  ~SwapchainManager() {};
+   SwapchainManager() : m_logicalDevice(nullptr) {};
+  ~SwapchainManager()
+  {
+    m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
+  };
 
-  void createSwapchain(const VkDevice& _logicalDevice,
-                       const VkPhysicalDevice& _physicalDevice,
+  void createSwapchain(const VkPhysicalDevice& _physicalDevice,
                        const VkSurfaceKHR& _surface,
                        const uint32_t& _graphicQueueFamilyIdx,
                        const uint32_t& _presentQueueFamilyIdx,
                        GLFWwindow* _window);
   void createImageViews();
+
+  inline void setLogicalDevice(const VkDevice* _d) { if(!m_logicalDevice) m_logicalDevice = _d; }
 
   inline const VkSwapchainKHR&    getSwapchainRef()    { return m_swapchain; }
   inline const VkExtent2D&        getImageDimensions() { return m_imageDimensions; }
@@ -53,7 +56,7 @@ private:
   std::vector<VkImage>     m_images; // Implicitly destroyed alongside m_swapChain
   std::vector<VkImageView> m_imageViews;
 
-  boost::optional<const VkDevice&> m_logicalDevice;
+  const VkDevice* m_logicalDevice;
 
   VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
   VkPresentModeKHR   chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);

@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 
 #include <cstring>
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "VulkanInstanceManager.hpp"
 
@@ -16,8 +16,8 @@ const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_
 
 typedef struct
 {
-  boost::optional<uint32_t> graphicsFamily;
-  boost::optional<uint32_t> presentFamily;
+  std::optional<uint32_t> graphicsFamily;
+  std::optional<uint32_t> presentFamily;
 
   bool isComplete() const
   {

@@ -23,10 +23,10 @@ typedef struct
 class SwapchainManager
 {
 public:
-   SwapchainManager() : m_logicalDevice(nullptr) {};
+   SwapchainManager() : m_pLogicalDevice(nullptr) {};
   ~SwapchainManager()
   {
-    m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
+    m_pLogicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
   };
 
   void createSwapchain(const VkPhysicalDevice& _physicalDevice,
@@ -36,7 +36,7 @@ public:
                        GLFWwindow* _window);
   void createImageViews();
 
-  inline void setLogicalDevice(const VkDevice* _d) { if(!m_logicalDevice) m_logicalDevice = _d; }
+  inline void setLogicalDevice(const VkDevice* _d) { m_pLogicalDevice = _d; }
 
   inline const VkSwapchainKHR&    getSwapchainRef()    { return m_swapchain; }
   inline const VkExtent2D&        getImageDimensions() { return m_imageDimensions; }
@@ -56,7 +56,7 @@ private:
   std::vector<VkImage>     m_images; // Implicitly destroyed alongside m_swapChain
   std::vector<VkImageView> m_imageViews;
 
-  const VkDevice* m_logicalDevice;
+  const VkDevice* m_pLogicalDevice;
 
   VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
   VkPresentModeKHR   chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);

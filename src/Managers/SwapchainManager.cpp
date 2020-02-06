@@ -32,7 +32,7 @@ void SwapchainManager::createSwapchain(const VkPhysicalDevice& _physicalDevice,
                                        const uint32_t& _presentQueueFamilyIdx,
                                        GLFWwindow* _window)
 {
-  if (!m_logicalDevice)
+  if (!m_pLogicalDevice)
     throw std::runtime_error("SwapchainManager::createSwapchain - ERROR: NULL logical device!");
 
   if (!_window)
@@ -82,14 +82,14 @@ void SwapchainManager::createSwapchain(const VkPhysicalDevice& _physicalDevice,
     createInfo.pQueueFamilyIndices   = nullptr;
   }
 
-  if (vkCreateSwapchainKHR(*m_logicalDevice, &createInfo, nullptr, &m_swapchain) != VK_SUCCESS)
+  if (vkCreateSwapchainKHR(*m_pLogicalDevice, &createInfo, nullptr, &m_swapchain) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create swap chain!");
 
   // TODO: Move to another function
   uint32_t imageCount = swapChain.capabilities.minImageCount + 1;
-  vkGetSwapchainImagesKHR(*m_logicalDevice, m_swapchain, &imageCount, nullptr);
+  vkGetSwapchainImagesKHR(*m_pLogicalDevice, m_swapchain, &imageCount, nullptr);
   m_images.resize(imageCount);
-  vkGetSwapchainImagesKHR(*m_logicalDevice, m_swapchain, &imageCount, m_images.data());
+  vkGetSwapchainImagesKHR(*m_pLogicalDevice, m_swapchain, &imageCount, m_images.data());
 }
 
 VkSurfaceFormatKHR SwapchainManager::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
@@ -138,7 +138,7 @@ VkExtent2D SwapchainManager::getImageDimensions(const VkSurfaceCapabilitiesKHR& 
 // Creates an image view for each image in the swap chain.
 void SwapchainManager::createImageViews()
 {
-  if (!m_logicalDevice)
+  if (!m_pLogicalDevice)
     throw std::runtime_error("SwapchainManager::createImageViews - ERROR: NULL logical device!");
 
   m_imageViews.resize(m_images.size());
@@ -162,15 +162,15 @@ void SwapchainManager::createImageViews()
     createInfo.subresourceRange.baseArrayLayer = 0;
     createInfo.subresourceRange.layerCount     = 1; // >1 for cases like VR
 
-    if (vkCreateImageView(*m_logicalDevice, &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
+    if (vkCreateImageView(*m_pLogicalDevice, &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
       throw std::runtime_error("ERROR: Failed to create image view.");
   }
 }
 
 void SwapchainManager::cleanUp()
 {
-  for (VkImageView iv : m_imageViews) vkDestroyImageView(*m_logicalDevice, iv, nullptr);
-  vkDestroySwapchainKHR(*m_logicalDevice, m_swapchain, nullptr);
+  for (VkImageView iv : m_imageViews) vkDestroyImageView(*m_pLogicalDevice, iv, nullptr);
+  vkDestroySwapchainKHR(*m_pLogicalDevice, m_swapchain, nullptr);
 
-  m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
+  m_pLogicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
 }

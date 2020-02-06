@@ -28,6 +28,7 @@ void HelloTriangle::initVulkan()
 
   m_swapchainManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_pipelineManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
+  m_commandBufManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
 
   createSwapchain();
   m_swapchainManager.createImageViews();
@@ -37,8 +38,10 @@ void HelloTriangle::initVulkan()
   m_pipelineManager.createFrameBuffers(m_swapchainManager.getImageViews(),
                                        m_swapchainManager.getImageDimensions());
 
-  CreateCommandPool();
-  CreateCommandBuffers();
+  m_commandBufManager.createCommandPool(m_devicesManager.findQueueFamilies().graphicsFamily.value());
+  m_commandBufManager.createCommandBuffers(m_pipelineManager.getFrameBuffersRO().size());
+  recordRenderPassCommands();
+
   CreateSyncObjects();
 }
 
@@ -78,7 +81,7 @@ void HelloTriangle::drawFrame()
   submitInfo.pWaitSemaphores      = waitSemaphores;
   submitInfo.pWaitDstStageMask    = waitStages;
   submitInfo.commandBufferCount   = 1;
-  submitInfo.pCommandBuffers      = &m_commandBuffers[imageIdx];
+  submitInfo.pCommandBuffers      = &(m_commandBufManager.getCommandBufferAt(imageIdx));
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores    = signalSemaphores;
 
@@ -135,11 +138,7 @@ void HelloTriangle::createSwapchain()
 
 void HelloTriangle::cleanUpSwapchain()
 {
-  const VkDevice logicalDevice = m_devicesManager.getLogicalDevice();
-
-  vkFreeCommandBuffers(logicalDevice, m_commandPool,
-                       static_cast<uint32_t>(m_commandBuffers.size()), m_commandBuffers.data());
-
+  m_commandBufManager.freeBuffers();
   m_pipelineManager.cleanUp();
   m_swapchainManager.cleanUp();
 }
@@ -169,65 +168,22 @@ void HelloTriangle::recreateSwapchain()
   m_pipelineManager.createGraphicsPipeline(m_swapchainManager.getImageDimensions());
   m_pipelineManager.createFrameBuffers(m_swapchainManager.getImageViews(),
                                        m_swapchainManager.getImageDimensions());
-  CreateCommandBuffers();
+
+  m_commandBufManager.createCommandBuffers(m_pipelineManager.getFrameBuffersRO().size());
+  recordRenderPassCommands();
 }
 
-void HelloTriangle::CreateCommandPool()
+void HelloTriangle::recordRenderPassCommands()
 {
-  QueueFamilyIndices_t queueFamilyIndices = m_devicesManager.findQueueFamilies();
-
-  VkCommandPoolCreateInfo createInfo = {};
-  createInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  createInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-  createInfo.flags            = 0; // Optional
-
-  if (vkCreateCommandPool(m_devicesManager.getLogicalDevice(), &createInfo, nullptr, &m_commandPool)
-      != VK_SUCCESS)
+  for (size_t i=0; i<m_commandBufManager.getNumBuffers(); ++i)
   {
-    throw std::runtime_error("ERROR: Failed to create command pool");
-  }
-}
+    m_commandBufManager.beginRecording(i);
 
-void HelloTriangle::CreateCommandBuffers()
-{
-  m_commandBuffers.resize(m_pipelineManager.getFrameBuffersRO().size());
+    m_pipelineManager.beginRenderPass(m_commandBufManager.getCommandBufferAt(i),
+                                      m_swapchainManager.getImageDimensions(), i);
+    m_commandBufManager.setupRenderPassCommands(m_pipelineManager.getGraphicsPipelineRO(), i);
 
-  // Allocate the buffers TODO: Refactor into own function
-  VkCommandBufferAllocateInfo allocInfo = {};
-  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  allocInfo.commandPool = m_commandPool;
-  allocInfo.level       = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submited to queue, but not called from other buffers
-  allocInfo.commandBufferCount = static_cast<uint32_t>(m_commandBuffers.size());
-
-  if (vkAllocateCommandBuffers(m_devicesManager.getLogicalDevice(), &allocInfo,
-                               m_commandBuffers.data())
-      != VK_SUCCESS)
-  {
-    throw std::runtime_error("ERROR: Failed to allocate command buffers!");
-  }
-
-  // Record the command buffer TODO: Refactor into own function
-  for (size_t i=0; i<m_commandBuffers.size(); ++i)
-  {
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Only relevant for secondary command buffers
-
-    if (vkBeginCommandBuffer(m_commandBuffers[i], &beginInfo) != VK_SUCCESS)
-      throw std::runtime_error("ERROR: Failed to begin recording command buffer!");
-
-    // Start render pass //TODO: Refactor into own function
-    m_pipelineManager.beginRenderPass(m_commandBuffers[i], m_swapchainManager.getImageDimensions(), i);
-
-    vkCmdBindPipeline(m_commandBuffers[i],
-                      VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      m_pipelineManager.getGraphicsPipelineRO());
-    vkCmdDraw(m_commandBuffers[i], 3, 1, 0, 0);
-    vkCmdEndRenderPass(m_commandBuffers[i]);
-
-    if (vkEndCommandBuffer(m_commandBuffers[i]) != VK_SUCCESS)
-      throw std::runtime_error("ERROR: Failed to record command buffer!");
+    m_commandBufManager.endRecording(i);
   }
 }
 
@@ -274,8 +230,8 @@ void HelloTriangle::cleanUp()
     vkDestroyFence(logicalDevice, m_inFlightFences[i], nullptr);
   }
   cleanUpSwapchain();
-  vkDestroyCommandPool(logicalDevice, m_commandPool, nullptr);
 
+  m_commandBufManager.cleanUp();
   m_devicesManager.cleanUp();
   m_vkInstanceManager.cleanUp();
 

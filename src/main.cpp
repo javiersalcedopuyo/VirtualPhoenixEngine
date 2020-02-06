@@ -6,8 +6,13 @@ int main()
   DevicesManager        devicesManager(vkInstanceManager.getVkInstanceRef());
   SwapchainManager      swapchainManager;
   PipelineManager       pipelineManager;
+  CommandBuffersManager commandBufManager;
 
-  HelloTriangle app(vkInstanceManager, devicesManager, swapchainManager, pipelineManager);
+  HelloTriangle app(vkInstanceManager,
+                    devicesManager,
+                    swapchainManager,
+                    pipelineManager,
+                    commandBufManager);
 
   std::cout << "Starting..." << std::endl;
 

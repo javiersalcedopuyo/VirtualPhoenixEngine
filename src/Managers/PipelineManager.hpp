@@ -16,10 +16,10 @@ static constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
 class PipelineManager
 {
 public:
-  PipelineManager() : m_logicalDevice(nullptr) {};
+  PipelineManager() : m_pLogicalDevice(nullptr) {};
   ~PipelineManager()
   {
-    m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
+    m_pLogicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it
   };
 
   void createRenderPass(const VkFormat& _imgFormat);
@@ -33,7 +33,7 @@ public:
 
   void cleanUp();
 
-  inline void setLogicalDevice(const VkDevice* _d) { if (!m_logicalDevice) m_logicalDevice = _d; }
+  inline void setLogicalDevice(const VkDevice* _d) { m_pLogicalDevice = _d; }
 
   // Read Only getters
   inline const VkPipeline&                 getGraphicsPipelineRO() { return m_graphicsPipeline; }
@@ -47,7 +47,7 @@ private:
   std::vector<VkFramebuffer> m_frameBuffers;
 
   // TODO: Change to a pointer
-  const VkDevice* m_logicalDevice;
+  const VkDevice* m_pLogicalDevice;
 
   void cleanShaderModules(VkPipelineShaderStageCreateFlags);
 

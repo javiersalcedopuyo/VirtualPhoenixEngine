@@ -10,6 +10,7 @@
 #include "Managers/DevicesManager.hpp"
 #include "Managers/SwapchainManager.hpp"
 #include "Managers/PipelineManager.hpp"
+#include "Managers/CommandBuffersManager.hpp"
 
 static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -19,11 +20,13 @@ public:
   HelloTriangle(VulkanInstanceManager& vkInstanceManager,
                 DevicesManager&        devicesManager,
                 SwapchainManager&      swapchainManager,
-                PipelineManager&       pipelineManager)
+                PipelineManager&       pipelineManager,
+                CommandBuffersManager& commandBufManager)
   : m_vkInstanceManager(vkInstanceManager),
     m_devicesManager(devicesManager),
     m_swapchainManager(swapchainManager),
     m_pipelineManager(pipelineManager),
+    m_commandBufManager(commandBufManager),
     m_currentFrame(0)
   {};
   ~HelloTriangle() {}
@@ -35,9 +38,7 @@ private:
   DevicesManager&        m_devicesManager;
   SwapchainManager&      m_swapchainManager;
   PipelineManager&       m_pipelineManager;
-
-  VkCommandPool m_commandPool;
-  std::vector<VkCommandBuffer> m_commandBuffers; // Implicitly destroyed alongside m_commandPool
+  CommandBuffersManager& m_commandBufManager;
 
   uint32_t m_currentFrame;
   std::vector<VkSemaphore> m_imageAvailableSemaphores;
@@ -55,9 +56,7 @@ private:
   void cleanUpSwapchain();
   void recreateSwapchain();
 
-  // Command Buffers
-  void CreateCommandPool();
-  void CreateCommandBuffers();
+  void recordRenderPassCommands();
 
   void CreateSyncObjects();
 };

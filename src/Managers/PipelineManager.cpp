@@ -2,7 +2,7 @@
 
 void PipelineManager::createRenderPass(const VkFormat& _imgFormat)
 {
-  if (!m_logicalDevice)
+  if (!m_pLogicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createRenderPass - NULL logical device.");
 
   VkAttachmentDescription colorAttachment = {};
@@ -46,13 +46,13 @@ void PipelineManager::createRenderPass(const VkFormat& _imgFormat)
   createInfo.dependencyCount = 1;
   createInfo.pDependencies   = &dependency;
 
-  if (vkCreateRenderPass(*m_logicalDevice, &createInfo, nullptr, &m_renderPass) != VK_SUCCESS)
+  if (vkCreateRenderPass(*m_pLogicalDevice, &createInfo, nullptr, &m_renderPass) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed creating render pass!");
 }
 
 void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
 {
-  if (!m_logicalDevice)
+  if (!m_pLogicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createGraphicsPipeline - NULL logical Device");
 
   // TODO: Separate the stages creation into their own functions
@@ -184,7 +184,7 @@ void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
   layoutInfo.pushConstantRangeCount = 0; // Optional
   layoutInfo.pPushConstantRanges    = nullptr; // Optional
 
-  if (vkCreatePipelineLayout(*m_logicalDevice, &layoutInfo, nullptr, &m_layout) != VK_SUCCESS)
+  if (vkCreatePipelineLayout(*m_pLogicalDevice, &layoutInfo, nullptr, &m_layout) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create the pipeline layout!");
 
   // The pipeline itself!
@@ -208,7 +208,7 @@ void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
   pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE; // Optional
   pipelineInfo.basePipelineIndex   = -1; // Optional
 
-  if (vkCreateGraphicsPipelines(*m_logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo,
+  if (vkCreateGraphicsPipelines(*m_pLogicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo,
                                 nullptr, &m_graphicsPipeline)
       != VK_SUCCESS)
   {
@@ -216,13 +216,13 @@ void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
   }
 
   // CLEANING // DOUBT: Can I clean already?
-  vkDestroyShaderModule(*m_logicalDevice, vertShaderMod, nullptr);
-  vkDestroyShaderModule(*m_logicalDevice, fragShaderMod, nullptr);
+  vkDestroyShaderModule(*m_pLogicalDevice, vertShaderMod, nullptr);
+  vkDestroyShaderModule(*m_pLogicalDevice, fragShaderMod, nullptr);
 }
 
 VkShaderModule PipelineManager::createShaderModule(const std::vector<char>& _code)
 {
-  if (!m_logicalDevice)
+  if (!m_pLogicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createShaderModule - NULL logical Device");
 
   VkShaderModule result;
@@ -232,7 +232,7 @@ VkShaderModule PipelineManager::createShaderModule(const std::vector<char>& _cod
   createInfo.codeSize = _code.size();
   createInfo.pCode    = reinterpret_cast<const uint32_t*>(_code.data());
 
-  if (vkCreateShaderModule(*m_logicalDevice, &createInfo, nullptr, &result)
+  if (vkCreateShaderModule(*m_pLogicalDevice, &createInfo, nullptr, &result)
       != VK_SUCCESS)
   {
     throw std::runtime_error("ERROR: Failed to create shader module!");
@@ -262,7 +262,7 @@ std::vector<char> PipelineManager::readShaderFile(const char* _fileName)
 void PipelineManager::createFrameBuffers(const std::vector<VkImageView>& _imageViews,
                                          const VkExtent2D& _imageDimensions)
 {
-  if (!m_logicalDevice)
+  if (!m_pLogicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createFrameBuffers - NULL logical Device");
 
   m_frameBuffers.resize(_imageViews.size());
@@ -280,7 +280,7 @@ void PipelineManager::createFrameBuffers(const std::vector<VkImageView>& _imageV
     createInfo.height          = _imageDimensions.height;
     createInfo.layers          = 1;
 
-    if (vkCreateFramebuffer(*m_logicalDevice, &createInfo, nullptr, &m_frameBuffers[i]) != VK_SUCCESS)
+    if (vkCreateFramebuffer(*m_pLogicalDevice, &createInfo, nullptr, &m_frameBuffers[i]) != VK_SUCCESS)
       throw std::runtime_error("ERROR: Failed to create the framebuffer.");
   }
 }
@@ -305,15 +305,15 @@ void PipelineManager::beginRenderPass(const VkCommandBuffer& _commandBuffer,
 
 void PipelineManager::cleanUp()
 {
-  if (!m_logicalDevice)
+  if (!m_pLogicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::cleanUp - NULL logical Device");
 
   for (VkFramebuffer b : m_frameBuffers)
-    vkDestroyFramebuffer(*m_logicalDevice, b, nullptr);
+    vkDestroyFramebuffer(*m_pLogicalDevice, b, nullptr);
 
-  vkDestroyPipeline(*m_logicalDevice, m_graphicsPipeline, nullptr);
-  vkDestroyPipelineLayout(*m_logicalDevice, m_layout, nullptr);
-  vkDestroyRenderPass(*m_logicalDevice, m_renderPass, nullptr);
+  vkDestroyPipeline(*m_pLogicalDevice, m_graphicsPipeline, nullptr);
+  vkDestroyPipelineLayout(*m_pLogicalDevice, m_layout, nullptr);
+  vkDestroyRenderPass(*m_pLogicalDevice, m_renderPass, nullptr);
 
-  m_logicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it.
+  m_pLogicalDevice = nullptr; // I'm not the owner of this pointer, so I cannot delete it.
 }

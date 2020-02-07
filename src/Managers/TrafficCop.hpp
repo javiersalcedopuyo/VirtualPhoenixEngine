@@ -30,7 +30,7 @@ public:
     return m_renderFinishedSemaphores.at(_i);
   }
 
-  inline void markImageAsUsing(const uint32_t _imageIdx, const uint32_t _frameIdx)
+  inline void markImageAsBeingUsed(const uint32_t _imageIdx, const uint32_t _frameIdx)
   { // An image being used in a frame must wait until the corresponding commands finish
     m_imagesFences[_imageIdx] = m_commandsFences[_frameIdx];
   }
@@ -40,7 +40,7 @@ public:
     if (_i < m_imagesFences.size()) waitForFence(m_imagesFences.at(_i));
   }
 
-  inline void waitIfCommandUnfinished(const uint32_t _i)
+  inline void waitIfCommandsUnfinished(const uint32_t _i)
   {
     if (_i < m_commandsFences.size()) waitForFence(m_commandsFences.at(_i));
   }

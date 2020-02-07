@@ -40,7 +40,7 @@ private:
   SwapchainManager&      m_swapchainManager;
   PipelineManager&       m_pipelineManager;
   CommandBuffersManager& m_commandBufManager;
-  TrafficCop&            m_trafficCop;
+  TrafficCop&            m_trafficCop; // Manages the semaphores! (and the fences too)
 
   uint32_t m_currentFrame;
 
@@ -49,6 +49,12 @@ private:
   void mainLoop();
   void drawFrame();
   void cleanUp();
+
+  VkResult acquireNextImage(uint32_t& _imageIdx);
+
+  void submitQueue(VkSemaphore* _waitSmph, VkSemaphore* _signalSmph,
+                   VkPipelineStageFlags* _waitStages, const uint32_t _imageIdx);
+  void presentQueue(VkSemaphore* _signalSmph, const uint32_t _imageIdx);
 
   void createSwapchain();
   void cleanUpSwapchain();

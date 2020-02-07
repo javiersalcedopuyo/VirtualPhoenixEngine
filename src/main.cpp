@@ -7,7 +7,7 @@ int main()
   SwapchainManager      swapchainManager;
   PipelineManager       pipelineManager;
   CommandBuffersManager commandBufManager;
-  TrafficCop            trafficCop;
+  TrafficCop            trafficCop; // Manages the semaphores! (and the fences too)
 
   HelloTriangle app(vkInstanceManager,
                     devicesManager,

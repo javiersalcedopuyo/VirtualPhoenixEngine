@@ -48,42 +48,55 @@ void HelloTriangle::initVulkan()
 
 void HelloTriangle::drawFrame()
 {
-  const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
-
-  m_trafficCop.waitIfCommandUnfinished(m_currentFrame);
-
-  uint32_t imageIdx;
-  VkResult result = vkAcquireNextImageKHR(logicalDevice, m_swapchainManager.getSwapchainRef(),
-                                          UINT64_MAX, m_trafficCop.getImageSemaphoreAt(m_currentFrame),
-                                          VK_NULL_HANDLE, &imageIdx);
-
-  if (result == VK_ERROR_OUT_OF_DATE_KHR)
-  {
-    recreateSwapchain();
-    return;
-  }
-  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-    throw std::runtime_error("ERROR: Failed to acquire swap chain image!");
-
-  // Check if a previous frame is using this image. Wait if so.
-  m_trafficCop.waitIfUsingImage(imageIdx);
-
-  // Mark the image as in use
-  m_trafficCop.markImageAsUsing(imageIdx, m_currentFrame);
-
+  uint32_t    imageIdx;
   VkSemaphore waitSemaphores[]      = {m_trafficCop.getImageSemaphoreAt(m_currentFrame)};
   VkSemaphore signalSemaphores[]    = {m_trafficCop.getRenderFinishedSemaphoreAt(m_currentFrame)};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
+  m_trafficCop.waitIfCommandsUnfinished(m_currentFrame);
+
+  if (acquireNextImage(imageIdx) == VK_ERROR_OUT_OF_DATE_KHR)
+  {
+    recreateSwapchain();
+    return;
+  }
+
+  m_trafficCop.waitIfUsingImage(imageIdx);
+  m_trafficCop.markImageAsBeingUsed(imageIdx, m_currentFrame);
+
+  submitQueue(waitSemaphores, signalSemaphores, waitStages, imageIdx);
+  presentQueue(signalSemaphores, imageIdx);
+
+  m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+VkResult HelloTriangle::acquireNextImage(uint32_t& _imageIdx)
+{
+  VkResult result = vkAcquireNextImageKHR(m_devicesManager.getLogicalDevice(),
+                                          m_swapchainManager.getSwapchainRef(),
+                                          UINT64_MAX,
+                                          m_trafficCop.getImageSemaphoreAt(m_currentFrame),
+                                          VK_NULL_HANDLE,
+                                          &_imageIdx);
+
+  if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR && result != VK_ERROR_OUT_OF_DATE_KHR)
+    throw std::runtime_error("ERROR: Failed to acquire swap chain image!");
+  else
+    return result;
+}
+
+void HelloTriangle::submitQueue(VkSemaphore* _waitSmph, VkSemaphore* _signalSmph,
+                                VkPipelineStageFlags* _waitStages, const uint32_t _imageIdx)
+{
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.waitSemaphoreCount   = 1;
-  submitInfo.pWaitSemaphores      = waitSemaphores;
-  submitInfo.pWaitDstStageMask    = waitStages;
+  submitInfo.pWaitSemaphores      = _waitSmph;
+  submitInfo.pWaitDstStageMask    = _waitStages;
   submitInfo.commandBufferCount   = 1;
-  submitInfo.pCommandBuffers      = &(m_commandBufManager.getCommandBufferAt(imageIdx));
+  submitInfo.pCommandBuffers      = &(m_commandBufManager.getCommandBufferAt(_imageIdx));
   submitInfo.signalSemaphoreCount = 1;
-  submitInfo.pSignalSemaphores    = signalSemaphores;
+  submitInfo.pSignalSemaphores    = _signalSmph;
 
   m_trafficCop.resetCommandFence(m_currentFrame);
 
@@ -93,18 +106,21 @@ void HelloTriangle::drawFrame()
   {
     throw std::runtime_error("ERROR: Failed to submit draw command buffer!");
   }
+}
 
+void HelloTriangle::presentQueue(VkSemaphore* _signalSmph, const uint32_t _imageIdx)
+{
   VkSwapchainKHR swapChains[]    = {m_swapchainManager.getSwapchainRef()};
   VkPresentInfoKHR presentInfo   = {};
   presentInfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   presentInfo.waitSemaphoreCount = 1;
-  presentInfo.pWaitSemaphores    = signalSemaphores;
+  presentInfo.pWaitSemaphores    = _signalSmph;
   presentInfo.swapchainCount     = 1;
   presentInfo.pSwapchains        = swapChains;
-  presentInfo.pImageIndices      = &imageIdx;
+  presentInfo.pImageIndices      = &_imageIdx;
   presentInfo.pResults           = nullptr;
 
-  result = vkQueuePresentKHR(m_devicesManager.getPresentQueue(), &presentInfo);
+  VkResult result = vkQueuePresentKHR(m_devicesManager.getPresentQueue(), &presentInfo);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
       m_devicesManager.frameBufferResized())
   {
@@ -113,8 +129,6 @@ void HelloTriangle::drawFrame()
   }
   else if (result != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to present swap chain image");
-
-  m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void HelloTriangle::mainLoop()

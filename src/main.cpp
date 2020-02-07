@@ -7,12 +7,14 @@ int main()
   SwapchainManager      swapchainManager;
   PipelineManager       pipelineManager;
   CommandBuffersManager commandBufManager;
+  TrafficCop            trafficCop;
 
   HelloTriangle app(vkInstanceManager,
                     devicesManager,
                     swapchainManager,
                     pipelineManager,
-                    commandBufManager);
+                    commandBufManager,
+                    trafficCop);
 
   std::cout << "Starting..." << std::endl;
 

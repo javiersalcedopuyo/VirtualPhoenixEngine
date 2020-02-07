@@ -21,7 +21,7 @@ public:
   inline void setLogicalDevice(const VkDevice* _d) { m_pLogicalDevice = _d; }
 
   // TODO: Handle out of boundaries access
-  inline const VkCommandBuffer& getCommandBufferAt(uint32_t _i) { return m_commandBuffers[_i]; }
+  inline const VkCommandBuffer& getCommandBufferAt(uint32_t _i) { return m_commandBuffers.at(_i); }
   inline       size_t           getNumBuffers() { return m_commandBuffers.size(); }
 
   void createCommandPool(const uint32_t _queueFamilyIdx);

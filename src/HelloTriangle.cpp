@@ -29,6 +29,7 @@ void HelloTriangle::initVulkan()
   m_swapchainManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_pipelineManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_commandBufManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
+  m_trafficCop.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
 
   createSwapchain();
   m_swapchainManager.createImageViews();
@@ -42,18 +43,18 @@ void HelloTriangle::initVulkan()
   m_commandBufManager.createCommandBuffers(m_pipelineManager.getFrameBuffersRO().size());
   recordRenderPassCommands();
 
-  CreateSyncObjects();
+  m_trafficCop.createSyncObjects(m_swapchainManager.getNumImages());
 }
 
 void HelloTriangle::drawFrame()
 {
   const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
 
-  vkWaitForFences(logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+  m_trafficCop.waitIfCommandUnfinished(m_currentFrame);
 
   uint32_t imageIdx;
   VkResult result = vkAcquireNextImageKHR(logicalDevice, m_swapchainManager.getSwapchainRef(),
-                                          UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame],
+                                          UINT64_MAX, m_trafficCop.getImageSemaphoreAt(m_currentFrame),
                                           VK_NULL_HANDLE, &imageIdx);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR)
@@ -65,14 +66,13 @@ void HelloTriangle::drawFrame()
     throw std::runtime_error("ERROR: Failed to acquire swap chain image!");
 
   // Check if a previous frame is using this image. Wait if so.
-  if (m_imagesInFlight[imageIdx] != VK_NULL_HANDLE)
-    vkWaitForFences(logicalDevice, 1, &m_imagesInFlight[imageIdx], VK_TRUE, UINT64_MAX);
+  m_trafficCop.waitIfUsingImage(imageIdx);
 
   // Mark the image as in use
-  m_imagesInFlight[imageIdx] = m_inFlightFences[m_currentFrame];
+  m_trafficCop.markImageAsUsing(imageIdx, m_currentFrame);
 
-  VkSemaphore waitSemaphores[]      = {m_imageAvailableSemaphores[m_currentFrame]};
-  VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
+  VkSemaphore waitSemaphores[]      = {m_trafficCop.getImageSemaphoreAt(m_currentFrame)};
+  VkSemaphore signalSemaphores[]    = {m_trafficCop.getRenderFinishedSemaphoreAt(m_currentFrame)};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
   VkSubmitInfo submitInfo = {};
@@ -85,14 +85,18 @@ void HelloTriangle::drawFrame()
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores    = signalSemaphores;
 
-  vkResetFences(logicalDevice, 1, &m_inFlightFences[m_currentFrame]);
+  m_trafficCop.resetCommandFence(m_currentFrame);
 
-  if (vkQueueSubmit(m_devicesManager.getGraphicsQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS)
+  if (vkQueueSubmit(m_devicesManager.getGraphicsQueue(),
+                    1, &submitInfo, m_trafficCop.getCommandFenceAt(m_currentFrame))
+      != VK_SUCCESS)
+  {
     throw std::runtime_error("ERROR: Failed to submit draw command buffer!");
+  }
 
-  VkSwapchainKHR swapChains[] = {m_swapchainManager.getSwapchainRef()};
-  VkPresentInfoKHR presentInfo = {};
-  presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  VkSwapchainKHR swapChains[]    = {m_swapchainManager.getSwapchainRef()};
+  VkPresentInfoKHR presentInfo   = {};
+  presentInfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores    = signalSemaphores;
   presentInfo.swapchainCount     = 1;
@@ -187,50 +191,11 @@ void HelloTriangle::recordRenderPassCommands()
   }
 }
 
-void HelloTriangle::CreateSyncObjects()
-{
-  m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-  m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-  m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-  m_imagesInFlight.resize(m_swapchainManager.getNumImages(), VK_NULL_HANDLE);
-
-  VkSemaphoreCreateInfo semaphoreCI = {};
-  semaphoreCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-  VkFenceCreateInfo fencesCI = {};
-  fencesCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fencesCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-  const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
-  for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
-  {
-    if (vkCreateSemaphore(logicalDevice, &semaphoreCI, nullptr, &m_imageAvailableSemaphores[i])
-        != VK_SUCCESS ||
-        vkCreateSemaphore(logicalDevice, &semaphoreCI, nullptr, &m_renderFinishedSemaphores[i])
-        != VK_SUCCESS)
-    {
-      throw std::runtime_error("Failed to create semaphores!");
-    }
-
-    if (vkCreateFence(logicalDevice, &fencesCI, nullptr, &m_inFlightFences[i]) != VK_SUCCESS)
-    {
-      throw std::runtime_error("Failed to create fences!");
-    }
-  }
-}
-
 void HelloTriangle::cleanUp()
 {
-  const VkDevice& logicalDevice = m_devicesManager.getLogicalDevice();
-
-  for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
-  {
-    vkDestroySemaphore(logicalDevice, m_imageAvailableSemaphores[i], nullptr);
-    vkDestroySemaphore(logicalDevice, m_renderFinishedSemaphores[i], nullptr);
-    vkDestroyFence(logicalDevice, m_inFlightFences[i], nullptr);
-  }
   cleanUpSwapchain();
 
+  m_trafficCop.cleanUp();
   m_commandBufManager.cleanUp();
   m_devicesManager.cleanUp();
   m_vkInstanceManager.cleanUp();

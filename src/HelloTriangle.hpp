@@ -11,8 +11,7 @@
 #include "Managers/SwapchainManager.hpp"
 #include "Managers/PipelineManager.hpp"
 #include "Managers/CommandBuffersManager.hpp"
-
-static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+#include "Managers/TrafficCop.hpp"
 
 class HelloTriangle
 {
@@ -21,12 +20,14 @@ public:
                 DevicesManager&        devicesManager,
                 SwapchainManager&      swapchainManager,
                 PipelineManager&       pipelineManager,
-                CommandBuffersManager& commandBufManager)
+                CommandBuffersManager& commandBufManager,
+                TrafficCop&            trafficCop)
   : m_vkInstanceManager(vkInstanceManager),
     m_devicesManager(devicesManager),
     m_swapchainManager(swapchainManager),
     m_pipelineManager(pipelineManager),
     m_commandBufManager(commandBufManager),
+    m_trafficCop(trafficCop),
     m_currentFrame(0)
   {};
   ~HelloTriangle() {}
@@ -39,12 +40,9 @@ private:
   SwapchainManager&      m_swapchainManager;
   PipelineManager&       m_pipelineManager;
   CommandBuffersManager& m_commandBufManager;
+  TrafficCop&            m_trafficCop;
 
   uint32_t m_currentFrame;
-  std::vector<VkSemaphore> m_imageAvailableSemaphores;
-  std::vector<VkSemaphore> m_renderFinishedSemaphores;
-  std::vector<VkFence>     m_inFlightFences;
-  std::vector<VkFence>     m_imagesInFlight;
 
   void initWindow();
   void initVulkan();
@@ -57,7 +55,5 @@ private:
   void recreateSwapchain();
 
   void recordRenderPassCommands();
-
-  void CreateSyncObjects();
 };
 #endif

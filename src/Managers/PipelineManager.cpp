@@ -62,11 +62,6 @@ void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
   std::vector<char> vertShaderCode = readShaderFile("../src/Shaders/vert.spv");
   std::vector<char> fragShaderCode = readShaderFile("../src/Shaders/frag.spv");
 
-#ifndef NDEBUG
-  std::cout << "Vertex shader byte size: " << vertShaderCode.size() << std::endl;
-  std::cout << "Fragment shader byte size: " << fragShaderCode.size() << std::endl;
-#endif
-
   VkShaderModule vertShaderMod = createShaderModule(vertShaderCode);
   VkShaderModule fragShaderMod = createShaderModule(fragShaderCode);
 

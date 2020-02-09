@@ -1,18 +1,15 @@
 #ifndef DEVICES_MANAGER_HPP
 #define DEVICES_MANAGER_HPP
 
-#define GLFW_INCLUDE_VULKAN
+#ifndef GLFW_INCLUDE_VULKAN
+  #define GLFW_INCLUDE_VULKAN
+#endif
 #include <GLFW/glfw3.h>
 
 #include <cstring>
 #include <optional>
 
 #include "VulkanInstanceManager.hpp"
-
-constexpr int INITIAL_WIDTH  = 800;
-constexpr int INITIAL_HEIGTH = 600;
-
-const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 typedef struct
 {
@@ -66,28 +63,33 @@ public:
   {};
   ~DevicesManager() {};
 
-  inline const VkDevice&         getLogicalDevice()  { return m_logicalDevice; }
-  inline const VkPhysicalDevice& getPhysicalDevice() { return m_physicalDevice; }
-  inline const VkSurfaceKHR&     getSurface()        { return m_surface; }
-  inline       GLFWwindow*       getWindow()         { return m_window; }
-  inline const VkQueue&          getGraphicsQueue()  { return m_graphicsQueue; }
-  inline const VkQueue&          getPresentQueue()   { return m_presentQueue; }
+  static constexpr int INITIAL_WIDTH  = 800;
+  static constexpr int INITIAL_HEIGTH = 600;
+
+  const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+  void initWindow();
+  void createSurface();
+  void createPhysicalDevice();
+  void createLogicalDevice(const std::vector<const char*>& _validationLayers);
 
   inline bool frameBufferResized()         { return m_frameBufferResized; }
   inline void frameBufferResized(bool _in) { m_frameBufferResized = _in; }
 
   inline bool windowShouldClose() { return glfwWindowShouldClose(m_window); }
 
-  void initWindow();
-  void createSurface();
-  void createPhysicalDevice();
-  void createLogicalDevice();
-
   inline QueueFamilyIndices_t findQueueFamilies()     { return findQueueFamiliesForPhysicalDevice(m_physicalDevice); };
   inline std::vector<uint32_t> getQueueFamiliesIndices()
   {
     return std::vector<uint32_t>{m_graphicsQueueFamilyIdx, m_presentQueueFamilyIdx};
   }
+
+  inline const VkDevice&         getLogicalDevice()  { return m_logicalDevice; }
+  inline const VkPhysicalDevice& getPhysicalDevice() { return m_physicalDevice; }
+  inline const VkSurfaceKHR&     getSurface()        { return m_surface; }
+  inline       GLFWwindow*       getWindow()         { return m_window; }
+  inline const VkQueue&          getGraphicsQueue()  { return m_graphicsQueue; }
+  inline const VkQueue&          getPresentQueue()   { return m_presentQueue; }
 
   void cleanUp();
 };

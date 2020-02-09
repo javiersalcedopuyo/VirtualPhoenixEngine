@@ -43,7 +43,7 @@ void DevicesManager::createPhysicalDevice()
   if (m_physicalDevice == VK_NULL_HANDLE) throw std::runtime_error("ERROR: No suitable GPUs found!");
 }
 
-void DevicesManager::createLogicalDevice()
+void DevicesManager::createLogicalDevice(const std::vector<const char*>& _validationLayers)
 {
   float queuePriority = 1.0; // TODO: Avoid magic numbers
   const QueueFamilyIndices_t queueFamilyIndices = findQueueFamilies();
@@ -74,10 +74,10 @@ void DevicesManager::createLogicalDevice()
   createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
   // NOTE: enabledExtensionCount and ppEnabledLayerNames are ignored in modern Vulkan implementations
   createInfo.enabledExtensionCount   = DEVICE_EXTENSIONS.size();
-  if (!VALIDATION_LAYERS.empty())
+  if (!_validationLayers.empty())
   {
-    createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
+    createInfo.enabledLayerCount   = static_cast<uint32_t>(_validationLayers.size());
+    createInfo.ppEnabledLayerNames = _validationLayers.data();
   }
   else createInfo.enabledLayerCount = 0;
 

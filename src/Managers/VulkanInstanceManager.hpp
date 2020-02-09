@@ -12,32 +12,32 @@
 #include <cstring>
 #include <vector>
 
-#ifdef NDEBUG
-  const std::vector<const char*> VALIDATION_LAYERS = {};
-#else
-  const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
-#endif
-
 class VulkanInstanceManager
 {
 public:
   VulkanInstanceManager() {};
   ~VulkanInstanceManager() {};
 
+#ifdef NDEBUG
+  const std::vector<const char*> VALIDATION_LAYERS = {};
+#else
+  const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
+#endif
+
   void createVkInstance();
-  void cleanUp();
+  void initDebugMessenger();
 
   inline VkInstance& getVkInstanceRef() { return m_vkInstance; }
 
-  void initDebugMessenger();
+  void cleanUp();
 
 private:
   VkInstance m_vkInstance;
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
-  std::vector<const char*> getRequiredExtensions();
   void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
   bool checkValidationSupport();
+  std::vector<const char*> getRequiredExtensions();
 
   VkResult createDebugUtilsMessengerEXT(VkInstance instance,
                                         const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,

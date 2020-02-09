@@ -1,34 +1,24 @@
 #ifndef SYNC_MANAGER_HPP
 #define SYNC_MANAGER_HPP
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 // Error management
 #include <stdexcept>
 #include <iostream>
 
 #include <vector>
 
-static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+#include "BaseRenderManager.hpp"
 
 // Manages semaphores (and fences)
-class TrafficCop
+class TrafficCop : public BaseRenderManager
 {
 public:
-  TrafficCop() : m_pLogicalDevice(nullptr) {};
+  TrafficCop() {};
   ~TrafficCop() {};
 
-  inline       void         setLogicalDevice(const VkDevice* _d) { m_pLogicalDevice = _d; }
-  inline const VkFence&     getCommandFenceAt(const uint32_t _i) { return m_commandsFences.at(_i); }
-  inline const VkSemaphore& getImageSemaphoreAt(const uint32_t _i)
-  {
-    return m_imageAvailableSemaphores.at(_i);
-  }
+  static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-  inline const VkSemaphore& getRenderFinishedSemaphoreAt(const uint32_t _i)
-  {
-    return m_renderFinishedSemaphores.at(_i);
-  }
+  void createSyncObjects(const size_t _numImages);
 
   inline void markImageAsBeingUsed(const uint32_t _imageIdx, const uint32_t _frameIdx)
   { // An image being used in a frame must wait until the corresponding commands finish
@@ -45,19 +35,28 @@ public:
     if (_i < m_commandsFences.size()) waitForFence(m_commandsFences.at(_i));
   }
 
-  inline void resetCommandFence(const uint32_t _i)
-  {
-    if (_i < m_commandsFences.size()) resetFence(m_commandsFences.at(_i));
-  }
-
   inline void resetImagesFence(const uint32_t _i)
   {
     if (_i < m_imagesFences.size()) resetFence(m_imagesFences.at(_i));
   }
 
-  void createSyncObjects(const size_t _numImages);
+  inline void resetCommandFence(const uint32_t _i)
+  {
+    if (_i < m_commandsFences.size()) resetFence(m_commandsFences.at(_i));
+  }
 
-  void cleanUp();
+  inline const VkFence&     getCommandFenceAt(const uint32_t _i) { return m_commandsFences.at(_i); }
+  inline const VkSemaphore& getImageSemaphoreAt(const uint32_t _i)
+  {
+    return m_imageAvailableSemaphores.at(_i);
+  }
+
+  inline const VkSemaphore& getRenderFinishedSemaphoreAt(const uint32_t _i)
+  {
+    return m_renderFinishedSemaphores.at(_i);
+  }
+
+  void cleanUp() override;
 
 private:
   std::vector<VkSemaphore> m_imageAvailableSemaphores;
@@ -82,8 +81,5 @@ private:
     if (_fence != VK_NULL_HANDLE)
       vkResetFences(*m_pLogicalDevice, 1, &_fence);
   }
-
-  const VkDevice* m_pLogicalDevice;
 };
-
- #endif
+#endif

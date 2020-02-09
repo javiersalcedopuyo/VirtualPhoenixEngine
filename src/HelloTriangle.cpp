@@ -24,7 +24,7 @@ void HelloTriangle::initVulkan()
 
   m_devicesManager.createSurface();
   m_devicesManager.createPhysicalDevice();
-  m_devicesManager.createLogicalDevice();
+  m_devicesManager.createLogicalDevice(m_vkInstanceManager.VALIDATION_LAYERS);
 
   m_swapchainManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_pipelineManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
@@ -67,7 +67,7 @@ void HelloTriangle::drawFrame()
   submitQueue(waitSemaphores, signalSemaphores, waitStages, imageIdx);
   presentQueue(signalSemaphores, imageIdx);
 
-  m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+  m_currentFrame = (m_currentFrame + 1) % TrafficCop::MAX_FRAMES_IN_FLIGHT;
 }
 
 VkResult HelloTriangle::acquireNextImage(uint32_t& _imageIdx)

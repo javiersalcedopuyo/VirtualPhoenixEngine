@@ -1,0 +1,226 @@
+@startuml ClassDiagram
+!define DARKBLUE
+!includeurl https://raw.githubusercontent.com/Drakemor/RedDress-PlantUML/master/style.puml
+
+class VulkanInstanceManager
+{
+  +const vector<const char*> VALIDATION_LAYERS
+  ..
+  -VkInstance m_vkInstance
+  -VkDebugUtilsMessengerEXT m_debugMessenger
+  +createVkInstance()
+  +initDebugMessenger()
+  +getVkInstanceRef()
+  +cleanUp()
+
+  -populateDebugMessenger()
+  -checkValidationSupport()
+  -getRequiredExtensions()
+
+  -createDebugUtilsMessengerEXT()
+  -destroyDebugUtilsMessengerEXT()
+
+  -DebugCallback()
+}
+
+class QueueFamilyIndices_t
+{
+  +optional<uint32_t> graphicsFamily
+  +optional<uint32_t> presentFamily
+  +isComplete()
+}
+
+class DevicesManager
+{
+  +{static} constexpr int INITIAL_WIDTH
+  +{static} constexpr int INITIAL_HEIGHT
+  +const vector<const char*> DEVICE_EXTENSIONS
+  ..
+  -const VkInstance& m_vkInstance
+
+  -GLFWindow* m_window
+
+  -VkSurfaceKHR m_surface
+  -VkPhysicalDevice m_physicalDevice
+  -VkLogicalDevice m_logicalDevice
+  -VkQueue m_graphicsQueue
+  -VkQueue m_presentQueue
+
+  -uint32_t m_graphicsQueueFamilyIdx
+  -uint32_t m_presentQueueFamilyIdx
+
+  -bool m_framebufferResized
+  --
+  +initWindow()
+  +createSurface()
+  +createPhysicalDevice()
+  +createLogicalDevice()
+
+  +frameBufferResized()
+  +frameBufferResized(bool)
+
+  +windowShouldClose()
+
+  +findQueueFamilies()
+  +getQueueFamiliesIndices()
+
+  +getLogicalDevice()
+  +getPhysicalDevice()
+  +getSurfaceDevice()
+  +getWindow()
+  +getGraphicsQueue()
+  +getPresentQueue()
+
+  +cleanUp()
+
+  -isDeviceSuitable()
+  -findQueueFamiliesForPhysicalDevice()
+  -chekExtensionSupportOfPhysicalDevice()
+
+  -FramebufferResizeCallback()
+}
+
+class SwapChainDetails_t
+{
+  +VkSurfaceCapabilitiesKHR capabilities
+  +vector<VkSurfaceFormatKHR> formats
+  +vector<VkPresentModeKHR> presentModes
+}
+
+class SwapchainManager extends BaseRenderManager
+{
+  -VkSwapchainKHR m_swapchain
+  -VkFormat m_imageFormat
+  -VkExtent2D m_imageDimensions
+  -vector<VkImage> m_images
+  -vector<VkImageView> m_imageViews
+
+  +createSwapchain()
+  +createImageViews()
+
+  +getSwapchainRef()
+  +getImageDimensions()
+  +getImageFormat()
+  +getNumImages()
+  +getNumImageViews()
+  +getImageViews()
+  +getSwapchainDetails()
+
+  -chooseSwapSurfaceFormat()
+  -chooseSwapPresentMode()
+  -getImageExtent()
+}
+
+class PipelineManager extends BaseRenderManager
+{
+  +{static} constexpr VkClearValue CLEAR_COLOR_BLACK
+  ..
+  -VkRenderPass m_renderPass
+  -VkPipelineLayout m_layout
+  -VkPipeline m_graphicsPipeline
+
+  -vector<VkFramebuffer> m_framebufferResized
+
+  +createRenderPass()
+  +createGraphicsPipeline()
+  +createFrameBuffers()
+
+  +beginRenderPass()
+
+  +getGraphicsPipelineRO()
+  +getFrameBuffersRO()
+
+  -createShaderStageCI()
+  -readShaderFile()
+  -cleanShaderModules()
+}
+
+class CommandBuffersManager extends BaseRenderManager
+{
+  -VkCommandPool m_commandPool
+  -vector<VkCommandBuffer> m_commandBuffers
+
+  -const VkDevice* m_pLogicalDevice
+  +createCommandPool()
+  +createCommandBuffers()
+
+  +beginRecording()
+  +setupRenderPassCommands()
+  +endRecording()
+
+  +setLogicalDevice()
+
+  +getCommandBufferAt()
+  +getNumBuffers()
+
+  +freeBuffers()
+  +cleanUp()
+}
+
+class TrafficCop extends BaseRenderManager
+{
+  +{static} constexpr int MAX_FRAMES_IN_FLIGHT
+  ..
+  -vector<VkSemaphore> m_imageAvaliableSemaphores
+  -vector<VkSemaphore> m_renderFinishedSemaphores
+  -vector<VkFence> m_commandsFences
+  -vector<VkFence> m_imagesFences
+  --
+  +createSyncObjects()
+  +markImageAsBeingUsed()
+  +waitIfUsingImage()
+  +waitIfCommandsUnfinished()
+  +resetImagesFence()
+  +resetCommandFence()
+
+  +getCommandFenceAt()
+  +getImageSemaphoreAt()
+  +getRenderFinishedSemaphoreAt()
+
+  -waitForFence()
+  -resetFence()
+}
+
+class HelloTriangle
+{
+  -VulkanInstanceManager& m_vkInstanceManager
+  -DevicesManager& m_devicesManager
+  -SwapchainManager& m_swapchainManager
+  -PipelineManager& m_pipelineManager
+  -CommandBuffersManager& m_commandBufManager
+  -TrafficCop& m_trafficCop
+
+  -uint32_t m_currentFrame
+  --
+  +run()
+
+  -initWindow()
+  -initVulkan()
+  -mainLoop()
+  -drawFrame()
+
+  -acquireNextImage()
+  -submitQueue()
+  -presentQueue()
+
+  -createSwapchain()
+  -cleanUpSwapchain()
+  -recreateSwapchain()
+  -recordRendererPassCommands()
+}
+
+abstract class BaseRenderManager
+{
+  #const VkDevice* m_pLogicalDevice
+  +setLogicalDevice()
+
+  +virtual cleanUp()
+}
+
+VulkanInstanceManager "1" *-- HelloTriangle : Contains
+DevicesManager "1" *-- HelloTriangle : Contains
+SwapchainManager "1" *-- HelloTriangle : Contains
+PipelineManager "1" *-- HelloTriangle : Contains
+CommandBuffersManager "1" *-- HelloTriangle : Contains
+TrafficCop "1" *-- HelloTriangle : Contains
+@enduml

@@ -46,7 +46,7 @@ void SwapchainManager::createSwapchain(const VkPhysicalDevice& _physicalDevice,
   VkPresentModeKHR   presentMode   = chooseSwapPresentMode(swapChain.presentModes);
 
   m_imageFormat     = surfaceFormat.format;
-  m_imageDimensions = getImageDimensions(swapChain.capabilities, _window);
+  m_imageDimensions = getImageExtent(swapChain.capabilities, _window);
 
   VkSwapchainCreateInfoKHR createInfo = {};
   createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -117,7 +117,7 @@ VkPresentModeKHR SwapchainManager::chooseSwapPresentMode(const std::vector<VkPre
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D SwapchainManager::getImageDimensions(const VkSurfaceCapabilitiesKHR& _capabilities,
+VkExtent2D SwapchainManager::getImageExtent(const VkSurfaceCapabilitiesKHR& _capabilities,
                                                 GLFWwindow* _window)
 {
   if (_capabilities.currentExtent.width != UINT32_MAX) return _capabilities.currentExtent;

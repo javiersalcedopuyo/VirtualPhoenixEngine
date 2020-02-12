@@ -1,6 +1,7 @@
 .kdev4/
 .vscode/
 build/
+out/
 */CMakeFiles/
 
 sourceFiles

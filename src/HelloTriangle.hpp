@@ -1,192 +1,65 @@
 #ifndef HELLO_TRIANGLE_HPP
 #define HELLO_TRIANGLE_HPP
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-// Error management
-#include <stdexcept>
-#include <iostream>
-// Lambdas
-#include <functional>
 // EXIT_SUCCESS and EXIT_FAILURES
 #include <cstdlib>
-// Loading files
-#include <fstream>
 // Max int values
 #include <cstdint>
-// General use
-#include <string.h>
-#include <cstring>
-#include <set>
-#include <vector>
-#include <optional>
 
-//#include "Managers/DevicesManager.hpp"
-
-constexpr int WIDTH  = 800;
-constexpr int HEIGTH = 600;
-constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-
-constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
-
-const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
-const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
-#ifdef NDEBUG
-  constexpr bool ENABLE_VALIDATION_LAYERS = false;
-#else
-  constexpr bool ENABLE_VALIDATION_LAYERS = true;
-#endif
-
-typedef struct
-{
-  std::optional<uint32_t> graphicsFamily;
-  std::optional<uint32_t> presentFamily;
-
-  bool IsComplete() const
-  {
-    return graphicsFamily.has_value() && presentFamily.has_value();
-  }
-
-} QueueFamilyIndices_t;
-
-typedef struct
-{
-  VkSurfaceCapabilitiesKHR        capabilities;
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR>   presentModes;
-
-} SwapChainDetails_t;
+#include "Managers/VulkanInstanceManager.hpp"
+#include "Managers/DevicesManager.hpp"
+#include "Managers/SwapchainManager.hpp"
+#include "Managers/PipelineManager.hpp"
+#include "Managers/CommandBuffersManager.hpp"
+#include "Managers/TrafficCop.hpp"
 
 class HelloTriangle
 {
 public:
-  HelloTriangle();
-  ~HelloTriangle();
-  void Run();
+  HelloTriangle(VulkanInstanceManager& vkInstanceManager,
+                DevicesManager&        devicesManager,
+                SwapchainManager&      swapchainManager,
+                PipelineManager&       pipelineManager,
+                CommandBuffersManager& commandBufManager,
+                TrafficCop&            trafficCop)
+  : m_vkInstanceManager(vkInstanceManager),
+    m_devicesManager(devicesManager),
+    m_swapchainManager(swapchainManager),
+    m_pipelineManager(pipelineManager),
+    m_commandBufManager(commandBufManager),
+    m_trafficCop(trafficCop),
+    m_currentFrame(0)
+  {};
+  ~HelloTriangle() {}
+
+  void run();
 
 private:
-  GLFWwindow*  m_window;
-  VkSurfaceKHR m_surface;
+  VulkanInstanceManager& m_vkInstanceManager;
+  DevicesManager&        m_devicesManager;
+  SwapchainManager&      m_swapchainManager;
+  PipelineManager&       m_pipelineManager;
+  CommandBuffersManager& m_commandBufManager;
+  TrafficCop&            m_trafficCop; // Manages the semaphores! (and the fences too)
 
-  VkInstance       m_vkInstance;
-  VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
-  VkDevice         m_logicalDevice;
-  VkQueue          m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
-  VkQueue          m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
+  uint32_t m_currentFrame;
 
-  bool                     m_frameBufferResized;
-  VkSwapchainKHR           m_swapChain;
-  VkFormat                 m_swapChainImageFormat;
-  VkExtent2D               m_swapChainExtent;
-  std::vector<VkImage>     m_swapChainImages; // Implicitly destroyed alongside m_swapChain
-  std::vector<VkImageView> m_swapChainImageViews;
+  void initWindow();
+  void initVulkan();
+  void mainLoop();
+  void drawFrame();
+  void cleanUp();
 
-  VkRenderPass     m_renderPass;
-  VkPipelineLayout m_pipelineLayout;
-  VkPipeline       m_graphicsPipeline;
-  std::vector<VkFramebuffer> m_swapChainFrameBuffers;
+  VkResult acquireNextImage(uint32_t& _imageIdx);
 
-  VkCommandPool m_commandPool;
-  std::vector<VkCommandBuffer> m_commandBuffers; // Implicitly destroyed alongside m_commandPool
+  void submitQueue(VkSemaphore* _waitSmph, VkSemaphore* _signalSmph,
+                   VkPipelineStageFlags* _waitStages, const uint32_t _imageIdx);
+  void presentQueue(VkSemaphore* _signalSmph, const uint32_t _imageIdx);
 
-  size_t m_currentFrame;
-  std::vector<VkSemaphore> m_imageAvailableSemaphores;
-  std::vector<VkSemaphore> m_renderFinishedSemaphores;
-  std::vector<VkFence>     m_inFlightFences;
-  std::vector<VkFence>     m_imagesInFlight;
+  void createSwapchain();
+  void cleanUpSwapchain();
+  void recreateSwapchain();
 
-  VkDebugUtilsMessengerEXT m_debugMessenger;
-
-  void InitWindow();
-  void CreateVkInstance();
-  void InitVulkan();
-  void MainLoop();
-  void DrawFrame();
-  void CleanUp();
-
-  void CreateSurface();
-
-  // Device management TODO: Move to an independent manager
-  void GetPhysicalDevice();
-  bool IsDeviceSuitable(VkPhysicalDevice _device);
-  void CreateLogicalDevice();
-
-  QueueFamilyIndices_t FindQueueFamilies(VkPhysicalDevice _device);
-
-  // Validation layers and extensions
-  bool CheckValidationSupport();
-  bool CheckExtensionSupport(VkPhysicalDevice _device);
-  std::vector<const char*> GetRequiredExtensions();
-  void PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
-  void InitDebugMessenger();
-
-  // Swapchain
-  SwapChainDetails_t QuerySwapChainSupport(VkPhysicalDevice _device);
-  VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
-  VkPresentModeKHR   ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
-  VkExtent2D         ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
-  void               CreateSwapChain();
-  void               CleanUpSwapChain();
-  void               RecreateSwapChain();
-  void               CreateImageViews();
-
-  // Pipeline
-  void CreateRenderPass();
-  void CreateGraphicsPipeline();
-  void CreateFrameBuffers();
-
-  // Command Buffers
-  void CreateCommandPool();
-  void CreateCommandBuffers();
-
-  // Shaders
-  VkShaderModule CreateShaderModule(const std::vector<char>& _code);
-
-  void CreateSyncObjects();
-
-  static void FramebufferResizeCallback(GLFWwindow* _window, int _width, int _height)
-  {
-    HelloTriangle* app = reinterpret_cast<HelloTriangle*>(glfwGetWindowUserPointer(_window));
-    app->m_frameBufferResized = true;
-    // Just so the compiler doesn't complain TODO: Whitelist this
-    ++_width;
-    ++_height;
-  }
-
-  static std::vector<char> ReadShaderFile(const char* _fileName)
-  {
-    // Read the file from the end and as a binary file
-    std::ifstream file(_fileName, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) throw std::runtime_error("ERROR: Couldn't open file"); //%s", _fileName);
-
-    size_t fileSize = static_cast<size_t>(file.tellg());
-    // We use a vector of chars instead of a char* or a string for more simplicity during the shader module creation
-    std::vector<char> buffer(fileSize);
-
-    // Go back to the beginning of the gile and read all the bytes at once
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-  };
-
-  static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-      VkDebugUtilsMessageSeverityFlagBitsEXT _messageSeverity,
-      VkDebugUtilsMessageTypeFlagsEXT _messageType,
-      const VkDebugUtilsMessengerCallbackDataEXT* _pCallbackData,
-      void* _pUserData)
-  {
-    if (_messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-    {
-      std::cerr << "Validation layer: " << _pCallbackData->pMessage << std::endl;
-      // Just to avoid compilation errors, not real functionality yet.
-      std::cerr << "Message Type: " << _messageType << std::endl;
-      if (_pUserData) std::cerr << "User Data exists!" << std::endl;
-    }
-
-    return VK_FALSE;
-  };
+  void recordRenderPassCommands();
 };
 #endif

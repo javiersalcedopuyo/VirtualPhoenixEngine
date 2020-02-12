@@ -5,16 +5,14 @@ project(VulkanHelloTriangle)
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror -std=c++17")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+add_subdirectory (src/Managers)
 add_subdirectory (src/)
-# TODO: Move the device management into its own class
-#add_subdirectory (src/Managers)
 
 file(GLOB sourceFiles
+  "src/Managers/*.hpp"
+  "src/Managers/*.cpp"
   "src/*.hpp"
   "src/*.cpp"
-  # TODO: Move the device management into its own class
-  #"src/Managers/*.hpp"
-  #"src/Managers/*.cpp"
 )
 add_executable(VkHelloTriangle ${sourceFiles})
 

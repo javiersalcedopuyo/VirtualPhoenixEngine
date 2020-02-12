@@ -1,0 +1,67 @@
+#ifndef VULKAN_INSTANCE_MANAGER_HPP
+#define VULKAN_INSTANCE_MANAGER_HPP
+
+#ifndef GLFW_INCLUDE_VULKAN
+  #define GLFW_INCLUDE_VULKAN
+#endif
+#include <GLFW/glfw3.h>
+// Error management
+#include <stdexcept>
+#include <iostream>
+
+#include <cstring>
+#include <vector>
+
+class VulkanInstanceManager
+{
+public:
+  VulkanInstanceManager() {};
+  ~VulkanInstanceManager() {};
+
+#ifdef NDEBUG
+  const std::vector<const char*> VALIDATION_LAYERS = {};
+#else
+  const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
+#endif
+
+  void createVkInstance();
+  void initDebugMessenger();
+
+  inline VkInstance& getVkInstanceRef() { return m_vkInstance; }
+
+  void cleanUp();
+
+private:
+  VkInstance m_vkInstance;
+  VkDebugUtilsMessengerEXT m_debugMessenger;
+
+  void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
+  bool checkValidationSupport();
+  std::vector<const char*> getRequiredExtensions();
+
+  VkResult createDebugUtilsMessengerEXT(VkInstance instance,
+                                        const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+                                        const VkAllocationCallbacks* pAllocator,
+                                        VkDebugUtilsMessengerEXT* pDebugMessenger);
+  void destroyDebugUtilsMessengerEXT(VkInstance instance,
+                                     VkDebugUtilsMessengerEXT debugMessenger,
+                                     const VkAllocationCallbacks* pAllocator);
+
+  static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+      VkDebugUtilsMessageSeverityFlagBitsEXT _messageSeverity,
+      VkDebugUtilsMessageTypeFlagsEXT _messageType,
+      const VkDebugUtilsMessengerCallbackDataEXT* _pCallbackData,
+      void* _pUserData)
+  {
+    if (_messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+    {
+      std::cerr << "Validation layer: " << _pCallbackData->pMessage << std::endl;
+      // Just to avoid compilation errors, not real functionality yet.
+      std::cerr << "Message Type: " << _messageType << std::endl;
+      if (_pUserData) std::cerr << "User Data exists!" << std::endl;
+    }
+
+    return VK_FALSE;
+  }
+};
+#endif

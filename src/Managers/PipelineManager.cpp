@@ -50,7 +50,8 @@ void PipelineManager::createRenderPass(const VkFormat& _imgFormat)
     throw std::runtime_error("ERROR: Failed creating render pass!");
 }
 
-void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
+void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent,
+        const VkPipelineVertexInputStateCreateInfo& _vertexInputStateCI)
 {
   if (!m_pLogicalDevice)
     throw std::runtime_error("ERROR: PipelineManager::createGraphicsPipeline - NULL logical Device");
@@ -82,15 +83,6 @@ void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
   fragShaderStageInfo.pSpecializationInfo = nullptr; // Sets shader's constants (null is default)
 
   VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-  // FIXED STAGES //
-  // Vertex Input (Empty for now since we are hardcoding it. TODO: Do it properly)
-  VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
-  vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertexInputInfo.vertexBindingDescriptionCount   = 0;
-  vertexInputInfo.pVertexBindingDescriptions      = nullptr;
-  vertexInputInfo.vertexAttributeDescriptionCount = 0;
-  vertexInputInfo.pVertexAttributeDescriptions    = nullptr; // Optional
 
   VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
   inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -187,7 +179,7 @@ void PipelineManager::createGraphicsPipeline(const VkExtent2D& _viewportExtent)
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineInfo.stageCount          = 2;
   pipelineInfo.pStages             = shaderStages;
-  pipelineInfo.pVertexInputState   = &vertexInputInfo;
+  pipelineInfo.pVertexInputState   = &_vertexInputStateCI;
   pipelineInfo.pInputAssemblyState = &inputAssembly;
   pipelineInfo.pViewportState      = &viewportState;
   pipelineInfo.pRasterizationState = &rasterizer;

@@ -28,6 +28,7 @@ void HelloTriangle::initVulkan()
 
   m_swapchainManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_pipelineManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
+  m_vertexBuffersManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_commandBufManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_trafficCop.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
 
@@ -35,11 +36,14 @@ void HelloTriangle::initVulkan()
   m_swapchainManager.createImageViews();
 
   m_pipelineManager.createRenderPass(m_swapchainManager.getImageFormat());
-  m_pipelineManager.createGraphicsPipeline(m_swapchainManager.getImageDimensions());
+  m_pipelineManager.createGraphicsPipeline(m_swapchainManager.getImageDimensions(),
+                                           m_vertexBuffersManager.getVertexInputStateCI());
   m_pipelineManager.createFrameBuffers(m_swapchainManager.getImageViews(),
                                        m_swapchainManager.getImageDimensions());
 
   m_commandBufManager.createCommandPool(m_devicesManager.findQueueFamilies().graphicsFamily.value());
+
+  m_vertexBuffersManager.setupVertexBuffer(m_devicesManager.getPhysicalDevice());
   m_commandBufManager.createCommandBuffers(m_pipelineManager.getFrameBuffersRO().size());
   recordRenderPassCommands();
 
@@ -175,18 +179,22 @@ void HelloTriangle::recreateSwapchain()
   vkDeviceWaitIdle(m_devicesManager.getLogicalDevice());
 
   cleanUpSwapchain();
+  m_vertexBuffersManager.cleanUp();
 
   m_swapchainManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
   m_pipelineManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
+  m_vertexBuffersManager.setLogicalDevice(&(m_devicesManager.getLogicalDevice()));
 
   createSwapchain();
   m_swapchainManager.createImageViews();
 
   m_pipelineManager.createRenderPass(m_swapchainManager.getImageFormat());
-  m_pipelineManager.createGraphicsPipeline(m_swapchainManager.getImageDimensions());
+  m_pipelineManager.createGraphicsPipeline(m_swapchainManager.getImageDimensions(),
+                                           m_vertexBuffersManager.getVertexInputStateCI());
   m_pipelineManager.createFrameBuffers(m_swapchainManager.getImageViews(),
                                        m_swapchainManager.getImageDimensions());
 
+  m_vertexBuffersManager.setupVertexBuffer(m_devicesManager.getPhysicalDevice());
   m_commandBufManager.createCommandBuffers(m_pipelineManager.getFrameBuffersRO().size());
   recordRenderPassCommands();
 }
@@ -199,7 +207,9 @@ void HelloTriangle::recordRenderPassCommands()
 
     m_pipelineManager.beginRenderPass(m_commandBufManager.getCommandBufferAt(i),
                                       m_swapchainManager.getImageDimensions(), i);
-    m_commandBufManager.setupRenderPassCommands(m_pipelineManager.getGraphicsPipelineRO(), i);
+    m_commandBufManager.setupRenderPassCommands(m_pipelineManager.getGraphicsPipelineRO(), i,
+                                                m_vertexBuffersManager.getVertexBufferRO(),
+                                                m_vertexBuffersManager.getVertexCount());
 
     m_commandBufManager.endRecording(i);
   }
@@ -210,6 +220,7 @@ void HelloTriangle::cleanUp()
   cleanUpSwapchain();
 
   m_trafficCop.cleanUp();
+  m_vertexBuffersManager.cleanUp();
   m_commandBufManager.cleanUp();
   m_devicesManager.cleanUp();
   m_vkInstanceManager.cleanUp();

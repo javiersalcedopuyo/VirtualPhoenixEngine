@@ -6,6 +6,7 @@ int main()
   DevicesManager        devicesManager(vkInstanceManager.getVkInstanceRef());
   SwapchainManager      swapchainManager;
   PipelineManager       pipelineManager;
+  VertexBuffersManager  vertexBuffersManager;
   CommandBuffersManager commandBufManager;
   TrafficCop            trafficCop; // Manages the semaphores! (and the fences too)
 
@@ -13,6 +14,7 @@ int main()
                     devicesManager,
                     swapchainManager,
                     pipelineManager,
+                    vertexBuffersManager,
                     commandBufManager,
                     trafficCop);
 

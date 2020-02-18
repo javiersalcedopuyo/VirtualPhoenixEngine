@@ -12,6 +12,7 @@
 #include "Managers/PipelineManager.hpp"
 #include "Managers/CommandBuffersManager.hpp"
 #include "Managers/TrafficCop.hpp"
+#include "Managers/VertexBuffersManager.hpp"
 
 class HelloTriangle
 {
@@ -20,12 +21,14 @@ public:
                 DevicesManager&        devicesManager,
                 SwapchainManager&      swapchainManager,
                 PipelineManager&       pipelineManager,
+                VertexBuffersManager&  vertexBuffersManager,
                 CommandBuffersManager& commandBufManager,
                 TrafficCop&            trafficCop)
   : m_vkInstanceManager(vkInstanceManager),
     m_devicesManager(devicesManager),
     m_swapchainManager(swapchainManager),
     m_pipelineManager(pipelineManager),
+    m_vertexBuffersManager(vertexBuffersManager),
     m_commandBufManager(commandBufManager),
     m_trafficCop(trafficCop),
     m_currentFrame(0)
@@ -39,6 +42,7 @@ private:
   DevicesManager&        m_devicesManager;
   SwapchainManager&      m_swapchainManager;
   PipelineManager&       m_pipelineManager;
+  VertexBuffersManager&  m_vertexBuffersManager;
   CommandBuffersManager& m_commandBufManager;
   TrafficCop&            m_trafficCop; // Manages the semaphores! (and the fences too)
 

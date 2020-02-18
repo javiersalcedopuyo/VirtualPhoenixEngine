@@ -1,13 +1,8 @@
 #ifndef PIPELINE_MANAGER_HPP
 #define PIPELINE_MANAGER_HPP
 
-// Error management
-#include <stdexcept>
-#include <iostream>
 // Loading files
 #include <fstream>
-
-#include <vector>
 
 #include "BaseRenderManager.hpp"
 
@@ -20,7 +15,8 @@ public:
   static constexpr VkClearValue CLEAR_COLOR_BLACK{0.0f, 0.0f, 0.0f, 1.0f};
 
   void createRenderPass(const VkFormat& _imgFormat);
-  void createGraphicsPipeline(const VkExtent2D& _viewportExtent);
+  void createGraphicsPipeline(const VkExtent2D& _viewportExtent,
+                              const VkPipelineVertexInputStateCreateInfo& _vertexInputStateCI);
   void createFrameBuffers(const std::vector<VkImageView>& _imageViews,
                           const VkExtent2D& _imageDimensions);
 

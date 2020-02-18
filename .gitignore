@@ -9,3 +9,4 @@ Makefile
 CMakeCache.txt
 *.cmake
 compile_commands.json
+*.spv

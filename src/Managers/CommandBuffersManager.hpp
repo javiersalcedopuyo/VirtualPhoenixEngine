@@ -5,8 +5,6 @@
 #include <stdexcept>
 #include <iostream>
 
-#include <vector>
-
 #include "BaseRenderManager.hpp"
 
 class CommandBuffersManager : public BaseRenderManager
@@ -23,7 +21,10 @@ public:
   void createCommandBuffers(const size_t _numBuffers);
 
   void beginRecording(const size_t _i);
-  void setupRenderPassCommands(const VkPipeline& _graphicsPipeline, const size_t _i);
+  void setupRenderPassCommands(const VkPipeline& _graphicsPipeline,
+                               const size_t _i,
+                               const VkBuffer& _vertexBuffer,
+                               const size_t _vertexCount);
   void endRecording(const size_t _i);
 
   void freeBuffers();

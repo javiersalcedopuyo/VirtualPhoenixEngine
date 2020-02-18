@@ -6,6 +6,12 @@
 #endif
 #include <GLFW/glfw3.h>
 
+// Error management
+#include <stdexcept>
+#include <iostream>
+
+#include <vector>
+
 class BaseRenderManager
 {
 protected:

@@ -44,14 +44,22 @@ void CommandBuffersManager::beginRecording(const size_t _i)
     throw std::runtime_error("ERROR: Failed to begin recording command buffer!");
 }
 
-void CommandBuffersManager::setupRenderPassCommands(const VkPipeline& _graphicsPipeline, const size_t _i)
+void CommandBuffersManager::setupRenderPassCommands(const VkPipeline& _graphicsPipeline,
+                                                    const size_t _i,
+                                                    const VkBuffer& _vertexBuffer,
+                                                    const size_t _vertexCount)
 {
   if (_i >= m_commandBuffers.size()) return; // TODO: Properly manage this error case
 
   vkCmdBindPipeline(m_commandBuffers[_i],
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                     _graphicsPipeline);
-  vkCmdDraw(m_commandBuffers[_i], 3, 1, 0, 0);
+
+  VkBuffer     vertexBuffers[] = {_vertexBuffer};
+  VkDeviceSize offsets[]       = {0};
+  vkCmdBindVertexBuffers(m_commandBuffers[_i], 0, 1, vertexBuffers, offsets);
+
+  vkCmdDraw(m_commandBuffers[_i], _vertexCount, 1, 0, 0);
   vkCmdEndRenderPass(m_commandBuffers[_i]);
 }
 

@@ -181,6 +181,35 @@ class TrafficCop extends BaseRenderManager
   -resetFence()
 }
 
+class Vertex << (S,#FF7700) >>
+{
+  +glm::vec2 pos
+  +glm::vec3 color
+
+  +{static} getBindingDescription()
+  +{static} getAttributeDescriptions()
+}
+
+class VertexBuffersManager extends BaseRenderManager
+{
+  -vector<Vertex> m_vertices
+  -VkMemoryRequirements m_memoryRequirements
+  -VkDeviceMemory m_vertexBufferMemory
+  -VkBuffer m_vertexBuffer
+  -VkVertexInputBindingDescription m_bindingDescription
+  -vector<VkVertexInputAttributeDescription> m_attributeDescriptions
+  +setupVertexBuffer()
+
+  +getVertexInputStateCI()
+  +getVertexBufferRO()
+  +getVertexCount()
+
+  -createVertexBuffer()
+  -allocateMemory()
+  -findMemoryType()
+  -fillVertexBuffer()
+}
+
 class HelloTriangle
 {
   -VulkanInstanceManager& m_vkInstanceManager
@@ -189,6 +218,7 @@ class HelloTriangle
   -PipelineManager& m_pipelineManager
   -CommandBuffersManager& m_commandBufManager
   -TrafficCop& m_trafficCop
+  -VertexBuffersManager& m_vertexBuffersManager
 
   -uint32_t m_currentFrame
   --
@@ -223,4 +253,6 @@ SwapchainManager "1" *-- HelloTriangle : Contains
 PipelineManager "1" *-- HelloTriangle : Contains
 CommandBuffersManager "1" *-- HelloTriangle : Contains
 TrafficCop "1" *-- HelloTriangle : Contains
+VertexBuffersManager "1" *-- HelloTriangle : Contains
+Vertex "N" *-- VertexBuffersManager: Contains
 @enduml

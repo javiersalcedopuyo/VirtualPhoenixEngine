@@ -5,8 +5,6 @@
 #include <stdexcept>
 #include <iostream>
 
-#include <vector>
-
 #include "BaseRenderManager.hpp"
 
 typedef struct

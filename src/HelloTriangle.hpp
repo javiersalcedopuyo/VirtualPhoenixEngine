@@ -18,8 +18,11 @@
 #include <string.h>
 #include <cstring>
 #include <set>
+#include <array>
 #include <vector>
 #include <optional>
+
+#include <glm/glm.hpp>
 
 //#include "Managers/DevicesManager.hpp"
 
@@ -58,6 +61,37 @@ typedef struct
 
 } SwapChainDetails_t;
 
+struct Vertex
+{
+  glm::vec2 pos;
+  glm::vec3 color;
+
+  static VkVertexInputBindingDescription getBindingDescription()
+  {
+    VkVertexInputBindingDescription bd = {};
+    bd.binding   = 0;
+    bd.stride    = sizeof(Vertex);
+    bd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    return bd;
+  }
+
+  static std::array<VkVertexInputAttributeDescription,2> getAttributeDescritions()
+  {
+    std::array<VkVertexInputAttributeDescription,2> descriptions = {};
+    descriptions[0].binding  = 0;
+    descriptions[0].location = 0;
+    descriptions[0].format   = VK_FORMAT_R32G32_SFLOAT;
+    descriptions[0].offset   = offsetof(Vertex, pos);
+    descriptions[1].binding  = 0;
+    descriptions[1].location = 1;
+    descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    descriptions[1].offset   = offsetof(Vertex, color);
+
+    return descriptions;
+  }
+};
+
 class HelloTriangle
 {
 public:
@@ -95,6 +129,16 @@ private:
   std::vector<VkSemaphore> m_renderFinishedSemaphores;
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
+
+  const std::vector<Vertex> m_vertices =
+  {
+    {{ 0.0f, -0.5f}, {0.0f, 1.0f, 1.0f}},
+    {{ 0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}},
+    {{-0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}},
+  };
+
+  VkBuffer       m_vertexBuffer;
+  VkDeviceMemory m_vertexBufferMemory;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -142,6 +186,9 @@ private:
 
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
+  void           createVertexBuffer();
+  uint32_t       findMemoryType(const uint32_t _typeFilter,
+                                const VkMemoryPropertyFlags _properties);
 
   void createSyncObjects();
 

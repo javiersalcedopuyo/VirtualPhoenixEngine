@@ -43,7 +43,7 @@ typedef struct
   std::optional<uint32_t> graphicsFamily;
   std::optional<uint32_t> presentFamily;
 
-  bool IsComplete() const
+  bool isComplete() const
   {
     return graphicsFamily.has_value() && presentFamily.has_value();
   }
@@ -98,52 +98,52 @@ private:
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
-  void InitWindow();
-  void CreateVkInstance();
-  void InitVulkan();
-  void MainLoop();
-  void DrawFrame();
-  void CleanUp();
+  void initWindow();
+  void createVkInstance();
+  void initVulkan();
+  void mainLoop();
+  void drawFrame();
+  void cleanUp();
 
-  void CreateSurface();
+  void createSurface();
 
   // Device management TODO: Move to an independent manager
-  void GetPhysicalDevice();
-  bool IsDeviceSuitable(VkPhysicalDevice _device);
-  void CreateLogicalDevice();
+  void getPhysicalDevice();
+  bool isDeviceSuitable(VkPhysicalDevice _device);
+  void createLogicalDevice();
 
-  QueueFamilyIndices_t FindQueueFamilies(VkPhysicalDevice _device);
+  QueueFamilyIndices_t findQueueFamilies(VkPhysicalDevice _device);
 
   // Validation layers and extensions
-  bool CheckValidationSupport();
-  bool CheckExtensionSupport(VkPhysicalDevice _device);
-  std::vector<const char*> GetRequiredExtensions();
-  void PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
-  void InitDebugMessenger();
+  bool checkValidationSupport();
+  bool checkExtensionSupport(VkPhysicalDevice _device);
+  std::vector<const char*> getRequiredExtensions();
+  void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
+  void initDebugMessenger();
 
   // Swapchain
-  SwapChainDetails_t QuerySwapChainSupport(VkPhysicalDevice _device);
-  VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
-  VkPresentModeKHR   ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
-  VkExtent2D         ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
-  void               CreateSwapChain();
-  void               CleanUpSwapChain();
-  void               RecreateSwapChain();
-  void               CreateImageViews();
+  SwapChainDetails_t querySwapChainSupport(VkPhysicalDevice _device);
+  VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
+  VkPresentModeKHR   chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
+  VkExtent2D         chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
+  void               createSwapChain();
+  void               cleanUpSwapChain();
+  void               recreateSwapChain();
+  void               createImageViews();
 
   // Pipeline
-  void CreateRenderPass();
-  void CreateGraphicsPipeline();
-  void CreateFrameBuffers();
+  void createRenderPass();
+  void createGraphicsPipeline();
+  void createFrameBuffers();
 
   // Command Buffers
-  void CreateCommandPool();
-  void CreateCommandBuffers();
+  void createCommandPool();
+  void createCommandBuffers();
 
   // Shaders
-  VkShaderModule CreateShaderModule(const std::vector<char>& _code);
+  VkShaderModule createShaderModule(const std::vector<char>& _code);
 
-  void CreateSyncObjects();
+  void createSyncObjects();
 
   static void FramebufferResizeCallback(GLFWwindow* _window, int _width, int _height)
   {
@@ -154,7 +154,7 @@ private:
     ++_height;
   }
 
-  static std::vector<char> ReadShaderFile(const char* _fileName)
+  static std::vector<char> ReadShaderFileCallback(const char* _fileName)
   {
     // Read the file from the end and as a binary file
     std::ifstream file(_fileName, std::ios::ate | std::ios::binary);

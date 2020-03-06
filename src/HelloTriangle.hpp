@@ -187,8 +187,17 @@ private:
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
   void           createVertexBuffer();
-  uint32_t       findMemoryType(const uint32_t _typeFilter,
-                                const VkMemoryPropertyFlags _properties);
+
+  void createBuffer(const VkDeviceSize          _size,
+                    const VkBufferUsageFlags    _usage,
+                    const VkMemoryPropertyFlags _properties,
+                          VkBuffer&             _buffer,
+                          VkDeviceMemory&       _bufferMemory);
+
+  void copyBuffer(const VkBuffer& _src, VkBuffer& _dst, const VkDeviceSize _size);
+
+  uint32_t findMemoryType(const uint32_t              _typeFilter,
+                          const VkMemoryPropertyFlags _properties);
 
   void createSyncObjects();
 

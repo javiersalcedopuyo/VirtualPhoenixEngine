@@ -927,36 +927,96 @@ void HelloTriangle::createCommandBuffers()
 
 void HelloTriangle::createVertexBuffer()
 {
+  VkDeviceSize bufferSize = sizeof(m_vertices[0]) * m_vertices.size();
+
+  // Staging buffer to optimize memory copying to the GPU
+  VkBuffer       stagingBuffer;
+  VkDeviceMemory stagingMemory;
+  createBuffer(bufferSize,
+               VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               stagingBuffer,
+               stagingMemory);
+
+  void* data;
+  vkMapMemory(m_logicalDevice, stagingMemory, 0, bufferSize, 0, &data);
+  memcpy(data, m_vertices.data(), bufferSize);
+  vkUnmapMemory(m_logicalDevice, stagingMemory);
+
+  createBuffer(bufferSize,
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               m_vertexBuffer,
+               m_vertexBufferMemory);
+
+  copyBuffer(stagingBuffer, m_vertexBuffer, bufferSize);
+}
+
+void HelloTriangle::createBuffer(const VkDeviceSize          _size,
+                                 const VkBufferUsageFlags    _usage,
+                                 const VkMemoryPropertyFlags _properties,
+                                       VkBuffer&             _buffer,
+                                       VkDeviceMemory&       _bufferMemory)
+{
   VkBufferCreateInfo bufferInfo = {};
   bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  bufferInfo.size        = sizeof(m_vertices[0]) * m_vertices.size();
-  bufferInfo.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  bufferInfo.size        = _size;
+  bufferInfo.usage       = _usage;
   bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  if (vkCreateBuffer(m_logicalDevice, &bufferInfo, nullptr, &m_vertexBuffer) != VK_SUCCESS)
+  if (vkCreateBuffer(m_logicalDevice, &bufferInfo, nullptr, &_buffer) != VK_SUCCESS)
     throw std::runtime_error("ERROR: createVertexBuffer - Failed!");
 
   // Allocate memory
   VkMemoryRequirements memReq;
-  vkGetBufferMemoryRequirements(m_logicalDevice, m_vertexBuffer, &memReq);
+  vkGetBufferMemoryRequirements(m_logicalDevice, _buffer, &memReq);
 
   VkMemoryAllocateInfo allocInfo = {};
-  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.allocationSize = memReq.size;
-  allocInfo.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits,
-                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocInfo.allocationSize       = memReq.size;
+  allocInfo.memoryTypeIndex      = findMemoryType(memReq.memoryTypeBits, _properties);
 
-  if (vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &m_vertexBufferMemory) != VK_SUCCESS)
+  if (vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &_bufferMemory) != VK_SUCCESS)
     throw std::runtime_error("ERROR: createVertexBuffer - Failed allocating memory!");
 
-  vkBindBufferMemory(m_logicalDevice, m_vertexBuffer, m_vertexBufferMemory, 0);
+  vkBindBufferMemory(m_logicalDevice, _buffer, _bufferMemory, 0);
+}
 
-  // Copy vertices data to the GPU
-  void* data;
-  vkMapMemory(m_logicalDevice, m_vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-  memcpy(data, m_vertices.data(), bufferInfo.size);
-  vkUnmapMemory(m_logicalDevice, m_vertexBufferMemory);
+void HelloTriangle::copyBuffer(const VkBuffer& _src, VkBuffer& _dst, const VkDeviceSize _size)
+{
+  // We can't copy to the GPU buffer directly, so we'll use a command buffer
+  VkCommandBuffer             commandBuffer;
+  VkCommandBufferAllocateInfo allocInfo = {};
+  allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocInfo.commandPool        = m_commandPool;
+  allocInfo.commandBufferCount = 1;
+
+  vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, &commandBuffer);
+
+  // Record command buffer
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  VkBufferCopy copyRegion = {};
+  copyRegion.srcOffset = 0;
+  copyRegion.dstOffset = 0;
+  copyRegion.size      = _size;
+  vkCmdCopyBuffer(commandBuffer, _src, _dst, 1, &copyRegion);
+
+  vkEndCommandBuffer(commandBuffer);
+
+  // Execute the command buffer
+  VkSubmitInfo submitInfo       = {};
+  submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers    = &commandBuffer;
+  vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(m_graphicsQueue);
+
+  vkFreeCommandBuffers(m_logicalDevice, m_commandPool, 1, &commandBuffer);
 }
 
 uint32_t HelloTriangle::findMemoryType(const uint32_t _typeFilter,

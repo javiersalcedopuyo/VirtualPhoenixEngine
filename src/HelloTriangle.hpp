@@ -132,13 +132,18 @@ private:
 
   const std::vector<Vertex> m_vertices =
   {
-    {{ 0.0f, -0.5f}, {0.0f, 1.0f, 1.0f}},
-    {{ 0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}},
-    {{-0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}},
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{ 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}}
   };
 
+  const std::vector<uint16_t> m_indices = { 0,1,2,2,3,0 };
+
   VkBuffer       m_vertexBuffer;
+  VkBuffer       m_indexBuffer;
   VkDeviceMemory m_vertexBufferMemory;
+  VkDeviceMemory m_indexBufferMemory;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -187,6 +192,7 @@ private:
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
   void           createVertexBuffer();
+  void           createIndexBuffer();
 
   void createBuffer(const VkDeviceSize          _size,
                     const VkBufferUsageFlags    _usage,

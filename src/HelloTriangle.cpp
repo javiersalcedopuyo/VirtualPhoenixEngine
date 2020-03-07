@@ -65,6 +65,7 @@ void HelloTriangle::initVulkan()
   createFrameBuffers();
   createCommandPool();
   createVertexBuffer();
+  createIndexBuffer();
   createCommandBuffers();
   createSyncObjects();
 }
@@ -448,8 +449,8 @@ VkSurfaceFormatKHR HelloTriangle::chooseSwapSurfaceFormat(const std::vector<VkSu
 {
   for (const VkSurfaceFormatKHR& format : _availableFormats)
   {
-    // We'll use sRGB as color space and RGB as color format
-    if (format.format == VK_FORMAT_B8G8R8_UNORM &&
+    // We'll use sRGB as color space and RGBA as color format
+    if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
         format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
     {
       return format;
@@ -917,7 +918,9 @@ void HelloTriangle::createCommandBuffers()
     VkDeviceSize offsets[]   = {0};
     vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-    vkCmdDraw(m_commandBuffers[i], 3, 1, 0, 0);
+    vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+    vkCmdDrawIndexed(m_commandBuffers[i], m_indices.size(), 1, 0, 0, 0);
     vkCmdEndRenderPass(m_commandBuffers[i]);
 
     if (vkEndCommandBuffer(m_commandBuffers[i]) != VK_SUCCESS)
@@ -950,6 +953,39 @@ void HelloTriangle::createVertexBuffer()
                m_vertexBufferMemory);
 
   copyBuffer(stagingBuffer, m_vertexBuffer, bufferSize);
+
+  vkDestroyBuffer(m_logicalDevice, stagingBuffer, nullptr);
+  vkFreeMemory(m_logicalDevice, stagingMemory, nullptr);
+}
+
+void HelloTriangle::createIndexBuffer()
+{
+  VkDeviceSize bufferSize = sizeof(m_indices[0]) * m_indices.size();
+
+  // Staging buffer to optimize memory copying to the GPU
+  VkBuffer       stagingBuffer;
+  VkDeviceMemory stagingMemory;
+  createBuffer(bufferSize,
+               VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               stagingBuffer,
+               stagingMemory);
+
+  void* data;
+  vkMapMemory(m_logicalDevice, stagingMemory, 0, bufferSize, 0, &data);
+  memcpy(data, m_indices.data(), bufferSize);
+  vkUnmapMemory(m_logicalDevice, stagingMemory);
+
+  createBuffer(bufferSize,
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               m_indexBuffer,
+               m_indexBufferMemory);
+
+  copyBuffer(stagingBuffer, m_indexBuffer, bufferSize);
+
+  vkDestroyBuffer(m_logicalDevice, stagingBuffer, nullptr);
+  vkFreeMemory(m_logicalDevice, stagingMemory, nullptr);
 }
 
 void HelloTriangle::createBuffer(const VkDeviceSize          _size,
@@ -965,7 +1001,7 @@ void HelloTriangle::createBuffer(const VkDeviceSize          _size,
   bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   if (vkCreateBuffer(m_logicalDevice, &bufferInfo, nullptr, &_buffer) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: createVertexBuffer - Failed!");
+    throw std::runtime_error("ERROR: createBuffer - Failed!");
 
   // Allocate memory
   VkMemoryRequirements memReq;
@@ -977,7 +1013,7 @@ void HelloTriangle::createBuffer(const VkDeviceSize          _size,
   allocInfo.memoryTypeIndex      = findMemoryType(memReq.memoryTypeBits, _properties);
 
   if (vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &_bufferMemory) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: createVertexBuffer - Failed allocating memory!");
+    throw std::runtime_error("ERROR: createBuffer - Failed allocating memory!");
 
   vkBindBufferMemory(m_logicalDevice, _buffer, _bufferMemory, 0);
 }
@@ -1078,8 +1114,10 @@ void HelloTriangle::cleanUp()
     vkDestroyFence(m_logicalDevice, m_inFlightFences[i], nullptr);
   }
   cleanUpSwapChain();
+  vkDestroyBuffer(m_logicalDevice, m_indexBuffer, nullptr);
   vkDestroyBuffer(m_logicalDevice, m_vertexBuffer, nullptr);
   vkFreeMemory(m_logicalDevice, m_vertexBufferMemory, nullptr);
+  vkFreeMemory(m_logicalDevice, m_indexBufferMemory, nullptr);
   vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
   vkDestroyDevice(m_logicalDevice, nullptr);
   vkDestroySurfaceKHR(m_vkInstance, m_surface, nullptr);

@@ -2,6 +2,8 @@
 #define HELLO_TRIANGLE_HPP
 
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
+
 #include <GLFW/glfw3.h>
 // Error management
 #include <stdexcept>
@@ -23,6 +25,9 @@
 #include <optional>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <chrono>
 
 //#include "Managers/DevicesManager.hpp"
 
@@ -92,6 +97,13 @@ struct Vertex
   }
 };
 
+struct ModelViewProjUBO
+{
+  alignas(16) glm::mat4 model;
+  alignas(16) glm::mat4 view;
+  alignas(16) glm::mat4 proj;
+};
+
 class HelloTriangle
 {
 public:
@@ -116,10 +128,13 @@ private:
   std::vector<VkImage>     m_swapChainImages; // Implicitly destroyed alongside m_swapChain
   std::vector<VkImageView> m_swapChainImageViews;
 
-  VkRenderPass     m_renderPass;
-  VkPipelineLayout m_pipelineLayout;
-  VkPipeline       m_graphicsPipeline;
-  std::vector<VkFramebuffer> m_swapChainFrameBuffers;
+  VkRenderPass                 m_renderPass;
+  VkDescriptorSetLayout        m_descriptorSetLayout;
+  VkDescriptorPool             m_descriptorPool;
+  std::vector<VkDescriptorSet> m_descriptorSets; // Implicitly destroyed alongside m_descriptorPool
+  VkPipelineLayout             m_pipelineLayout;
+  VkPipeline                   m_graphicsPipeline;
+  std::vector<VkFramebuffer>   m_swapChainFrameBuffers;
 
   VkCommandPool m_commandPool;
   std::vector<VkCommandBuffer> m_commandBuffers; // Implicitly destroyed alongside m_commandPool
@@ -144,6 +159,9 @@ private:
   VkBuffer       m_indexBuffer;
   VkDeviceMemory m_vertexBufferMemory;
   VkDeviceMemory m_indexBufferMemory;
+
+  std::vector<VkBuffer>       m_uniformBuffers;
+  std::vector<VkDeviceMemory> m_uniformBuffersMemory;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -184,6 +202,7 @@ private:
   void createRenderPass();
   void createGraphicsPipeline();
   void createFrameBuffers();
+  void createDescriptorSetLayout();
 
   // Command Buffers
   void createCommandPool();
@@ -193,6 +212,10 @@ private:
   VkShaderModule createShaderModule(const std::vector<char>& _code);
   void           createVertexBuffer();
   void           createIndexBuffer();
+  void           createUniformBuffers();
+  void           updateUniformBuffer(const size_t _idx);
+  void           createDescriptorPool();
+  void           createDescriptorSets();
 
   void createBuffer(const VkDeviceSize          _size,
                     const VkBufferUsageFlags    _usage,

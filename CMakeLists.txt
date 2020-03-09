@@ -18,8 +18,12 @@ file(GLOB sourceFiles
 )
 add_executable(VkHelloTriangle ${sourceFiles})
 
+add_library(stb_image INTERFACE)
+target_sources(stb_image INTERFACE ${CMAKE_SOURCE_DIR}/include/stb_image.h)
+target_include_directories(stb_image INTERFACE include)
+
 find_package(Vulkan REQUIRED)
 find_package (glfw3 REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIR})
 include_directories(${glfw3_INCLUDE_DIR})
-target_link_libraries(VkHelloTriangle ${Vulkan_LIBRARIES} ${GLFW3_LIBRARIES} glfw)
+target_link_libraries(VkHelloTriangle ${Vulkan_LIBRARIES} ${GLFW3_LIBRARIES} glfw stb_image)

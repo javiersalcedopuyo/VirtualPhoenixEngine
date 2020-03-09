@@ -1,10 +1,16 @@
 #ifndef HELLO_TRIANGLE_HPP
 #define HELLO_TRIANGLE_HPP
 
+#ifndef GLFW_INCLUDE_VULKAN
 #define GLFW_INCLUDE_VULKAN
+#endif
+#ifndef GLM_FORCE_RADIANS
 #define GLM_FORCE_RADIANS
+#endif
 
 #include <GLFW/glfw3.h>
+#include <stb_image.h>
+
 // Error management
 #include <stdexcept>
 #include <iostream>
@@ -69,6 +75,7 @@ typedef struct
 struct Vertex
 {
   glm::vec2 pos;
+  glm::vec2 texCoord;
   glm::vec3 color;
 
   static VkVertexInputBindingDescription getBindingDescription()
@@ -81,17 +88,23 @@ struct Vertex
     return bd;
   }
 
-  static std::array<VkVertexInputAttributeDescription,2> getAttributeDescritions()
+  static std::array<VkVertexInputAttributeDescription,3> getAttributeDescritions()
   {
-    std::array<VkVertexInputAttributeDescription,2> descriptions = {};
+    std::array<VkVertexInputAttributeDescription,3> descriptions = {};
     descriptions[0].binding  = 0;
     descriptions[0].location = 0;
     descriptions[0].format   = VK_FORMAT_R32G32_SFLOAT;
     descriptions[0].offset   = offsetof(Vertex, pos);
+
     descriptions[1].binding  = 0;
     descriptions[1].location = 1;
     descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
     descriptions[1].offset   = offsetof(Vertex, color);
+
+    descriptions[2].binding  = 0;
+    descriptions[2].location = 2;
+    descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
+    descriptions[2].offset   = offsetof(Vertex, texCoord);
 
     return descriptions;
   }
@@ -147,10 +160,10 @@ private:
 
   const std::vector<Vertex> m_vertices =
   {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{ 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+    {{ 0.5f, -0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+    {{ 0.5f,  0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f,  0.5f}, {1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}
   };
 
   const std::vector<uint16_t> m_indices = { 0,1,2,2,3,0 };
@@ -162,6 +175,11 @@ private:
 
   std::vector<VkBuffer>       m_uniformBuffers;
   std::vector<VkDeviceMemory> m_uniformBuffersMemory;
+
+  VkImage        m_texture;
+  VkDeviceMemory m_textureMemory;
+  VkImageView    m_textureImageView;
+  VkSampler      m_textureSampler;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -197,6 +215,7 @@ private:
   void               cleanUpSwapChain();
   void               recreateSwapChain();
   void               createImageViews();
+  VkImageView        createImageView(const VkImage& _image, const VkFormat& _format);
 
   // Pipeline
   void createRenderPass();
@@ -205,8 +224,10 @@ private:
   void createDescriptorSetLayout();
 
   // Command Buffers
-  void createCommandPool();
-  void createCommandBuffers();
+  void            createCommandPool();
+  void            createCommandBuffers();
+  VkCommandBuffer beginSingleTimeCommands();
+  void            endSingleTimeCommands(VkCommandBuffer& _commandBuffer);
 
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
@@ -216,6 +237,29 @@ private:
   void           updateUniformBuffer(const size_t _idx);
   void           createDescriptorPool();
   void           createDescriptorSets();
+
+  // Textures
+  void createTexture();
+  void createTextureImageView();
+  void createTextureSampler();
+
+  // TODO: Refactor. Too many parameters
+  void createImage(const uint32_t              _width,
+                   const uint32_t              _height,
+                   const VkFormat              _format,
+                   const VkImageTiling         _tiling,
+                   const VkImageUsageFlags     _usage,
+                   const VkMemoryPropertyFlags _properties,
+                         VkImage&              _image,
+                         VkDeviceMemory&       _imageMemory);
+
+  void transitionImageLayout(const VkImage& _image,
+                             const VkFormat _format,
+                             const VkImageLayout& _oldLayout,
+                             const VkImageLayout& _newLayout);
+
+  void copyBufferToImage(const VkBuffer& _buffer,       VkImage& _image,
+                         const uint32_t  _width,  const uint32_t height);
 
   void createBuffer(const VkDeviceSize          _size,
                     const VkBufferUsageFlags    _usage,

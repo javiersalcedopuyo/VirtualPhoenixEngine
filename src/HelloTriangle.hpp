@@ -7,6 +7,9 @@
 #ifndef GLM_FORCE_RADIANS
 #define GLM_FORCE_RADIANS
 #endif
+#ifndef GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#endif
 
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
@@ -41,7 +44,7 @@ constexpr int WIDTH  = 800;
 constexpr int HEIGTH = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-constexpr VkClearValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
+constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
 
 const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
 const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
@@ -74,8 +77,8 @@ typedef struct
 
 struct Vertex
 {
-  glm::vec2 pos;
   glm::vec2 texCoord;
+  glm::vec3 pos;
   glm::vec3 color;
 
   static VkVertexInputBindingDescription getBindingDescription()
@@ -93,7 +96,7 @@ struct Vertex
     std::array<VkVertexInputAttributeDescription,3> descriptions = {};
     descriptions[0].binding  = 0;
     descriptions[0].location = 0;
-    descriptions[0].format   = VK_FORMAT_R32G32_SFLOAT;
+    descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
     descriptions[0].offset   = offsetof(Vertex, pos);
 
     descriptions[1].binding  = 0;
@@ -160,13 +163,22 @@ private:
 
   const std::vector<Vertex> m_vertices =
   {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-    {{ 0.5f, -0.5f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-    {{ 0.5f,  0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f,  0.5f}, {1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}
+    {{1.0f, 0.0f}, {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+    {{0.0f, 0.0f}, { 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+    {{0.0f, 1.0f}, { 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+    {{1.0f, 1.0f}, {-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+
+    {{1.0f, 0.0f}, {-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.0f, 0.0f}, { 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.0f, 1.0f}, { 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{1.0f, 1.0f}, {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}}
   };
 
-  const std::vector<uint16_t> m_indices = { 0,1,2,2,3,0 };
+  const std::vector<uint16_t> m_indices =
+  {
+    0,1,2,2,3,0,
+    4,5,6,6,7,4
+  };
 
   VkBuffer       m_vertexBuffer;
   VkBuffer       m_indexBuffer;
@@ -180,6 +192,10 @@ private:
   VkDeviceMemory m_textureMemory;
   VkImageView    m_textureImageView;
   VkSampler      m_textureSampler;
+
+  VkImage        m_depthImage;
+  VkDeviceMemory m_depthMemory;
+  VkImageView    m_depthImageView;
 
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
@@ -215,7 +231,9 @@ private:
   void               cleanUpSwapChain();
   void               recreateSwapChain();
   void               createImageViews();
-  VkImageView        createImageView(const VkImage& _image, const VkFormat& _format);
+  VkImageView        createImageView(const VkImage&           _image,
+                                     const VkFormat&          _format,
+                                     const VkImageAspectFlags _aspectFlags);
 
   // Pipeline
   void createRenderPass();
@@ -242,6 +260,19 @@ private:
   void createTexture();
   void createTextureImageView();
   void createTextureSampler();
+
+  void     createDepthResources();
+  VkFormat findDepthFormat();
+
+  VkFormat findSupportedFormat(const std::vector<VkFormat>& _candidates,
+                               const VkImageTiling          _tiling,
+                               const VkFormatFeatureFlags   _features);
+
+  inline bool hasStencilComponent(const VkFormat& _format)
+  {
+    return _format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+           _format == VK_FORMAT_D24_UNORM_S8_UINT;
+  }
 
   // TODO: Refactor. Too many parameters
   void createImage(const uint32_t              _width,

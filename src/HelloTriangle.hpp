@@ -199,6 +199,7 @@ private:
   std::vector<VkBuffer>       m_uniformBuffers;
   std::vector<VkDeviceMemory> m_uniformBuffersMemory;
 
+  uint32_t       m_mipLevels;
   VkImage        m_texture;
   VkDeviceMemory m_textureMemory;
   VkImageView    m_textureImageView;
@@ -244,7 +245,8 @@ private:
   void               createImageViews();
   VkImageView        createImageView(const VkImage&           _image,
                                      const VkFormat&          _format,
-                                     const VkImageAspectFlags _aspectFlags);
+                                     const VkImageAspectFlags _aspectFlags,
+                                     const uint32_t           _mipLevels);
 
   // Pipeline
   void createRenderPass();
@@ -288,6 +290,7 @@ private:
   // TODO: Refactor. Too many parameters
   void createImage(const uint32_t              _width,
                    const uint32_t              _height,
+                   const uint32_t              _mipLevels,
                    const VkFormat              _format,
                    const VkImageTiling         _tiling,
                    const VkImageUsageFlags     _usage,
@@ -298,10 +301,17 @@ private:
   void transitionImageLayout(const VkImage& _image,
                              const VkFormat _format,
                              const VkImageLayout& _oldLayout,
-                             const VkImageLayout& _newLayout);
+                             const VkImageLayout& _newLayout,
+                             const uint32_t       _mipLevels);
 
   void copyBufferToImage(const VkBuffer& _buffer,       VkImage& _image,
                          const uint32_t  _width,  const uint32_t height);
+
+  void generateMipMaps(      VkImage& _image,
+                       const VkFormat _format,
+                             int      _width,
+                             int      _height,
+                             uint32_t _mipLevels);
 
   void loadModel();
 

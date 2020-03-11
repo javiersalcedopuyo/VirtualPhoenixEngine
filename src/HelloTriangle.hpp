@@ -10,9 +10,13 @@
 #ifndef GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #endif
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#endif
 
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
+#include <tiny_obj_loader.h>
 
 // Error management
 #include <stdexcept>
@@ -31,10 +35,12 @@
 #include <set>
 #include <array>
 #include <vector>
+#include <unordered_map>
 #include <optional>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/hash.hpp>
 
 #include <chrono>
 
@@ -45,6 +51,9 @@ constexpr int HEIGTH = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
+
+const char* const TEXTURE_PATH = "../Textures/ColorTestTex.png";
+const char* const MODEL_PATH   = "../Models/StanfordDragonWithUvs.obj";
 
 const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
 const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
@@ -77,6 +86,11 @@ typedef struct
 
 struct Vertex
 {
+  bool operator==(const Vertex& other) const
+  {
+    return pos == other.pos && color == other.color && texCoord == other.texCoord;
+  }
+
   glm::vec2 texCoord;
   glm::vec3 pos;
   glm::vec3 color;
@@ -112,6 +126,19 @@ struct Vertex
     return descriptions;
   }
 };
+
+// Needed to use Vertex as keys in an unordered map
+namespace std {
+  template <> struct hash<Vertex>
+  {
+    size_t operator()(Vertex const& vertex) const
+    {
+      return ((hash<glm::vec3>()(vertex.pos) ^
+              (hash<glm::vec3>()(vertex.color) << 1)) >>1) ^
+              (hash<glm::vec2>()(vertex.texCoord) << 1);
+    }
+  };
+}
 
 struct ModelViewProjUBO
 {
@@ -161,24 +188,8 @@ private:
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
 
-  const std::vector<Vertex> m_vertices =
-  {
-    {{1.0f, 0.0f}, {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-    {{0.0f, 0.0f}, { 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-    {{0.0f, 1.0f}, { 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-    {{1.0f, 1.0f}, {-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-
-    {{1.0f, 0.0f}, {-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.0f, 0.0f}, { 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.0f, 1.0f}, { 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{1.0f, 1.0f}, {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}}
-  };
-
-  const std::vector<uint16_t> m_indices =
-  {
-    0,1,2,2,3,0,
-    4,5,6,6,7,4
-  };
+  std::vector<Vertex>   m_vertices;
+  std::vector<uint32_t> m_indices;
 
   VkBuffer       m_vertexBuffer;
   VkBuffer       m_indexBuffer;
@@ -291,6 +302,8 @@ private:
 
   void copyBufferToImage(const VkBuffer& _buffer,       VkImage& _image,
                          const uint32_t  _width,  const uint32_t height);
+
+  void loadModel();
 
   void createBuffer(const VkDeviceSize          _size,
                     const VkBufferUsageFlags    _usage,

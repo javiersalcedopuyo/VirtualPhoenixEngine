@@ -1,6 +1,9 @@
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #endif
+#ifndef TINYOBJLOADER_IMPLEMENTATION
+#define TINYOBJLOADER_IMPLEMENTATION
+#endif
 
 #include "HelloTriangle.hpp"
 
@@ -73,6 +76,7 @@ void HelloTriangle::initVulkan()
   createTexture();
   createTextureImageView();
   createTextureSampler();
+  loadModel();
   createVertexBuffer();
   createIndexBuffer();
   createUniformBuffers();
@@ -1017,7 +1021,7 @@ void HelloTriangle::createCommandBuffers()
     VkDeviceSize offsets[]   = {0};
     vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindDescriptorSets(m_commandBuffers[i],
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1310,7 +1314,7 @@ void HelloTriangle::createTexture()
   int      texChannels  = 0;
   VkFormat format       = VK_FORMAT_R8G8B8A8_UNORM;
 
-  stbi_uc* pixels = stbi_load("../Textures/ColorTestTex.png", // TODO: Pass the path as a parameter
+  stbi_uc* pixels = stbi_load(TEXTURE_PATH, // TODO: Pass the path as a parameter
                               &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
   VkDeviceSize imageSize = texWidth * texHeight * texChannels;
@@ -1544,6 +1548,56 @@ VkFormat HelloTriangle::findDepthFormat()
     VK_IMAGE_TILING_OPTIMAL,
     VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
   );
+}
+
+void HelloTriangle::loadModel()
+{
+  tinyobj::attrib_t                attributes;
+  std::vector<tinyobj::shape_t>    shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string                      warning;
+  std::string                      error;
+
+  if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &warning, &error, MODEL_PATH))
+    throw std::runtime_error(warning + error);
+
+  std::unordered_map<Vertex, uint32_t> uniqueVertices;
+  for (const auto& shape : shapes)
+  {
+    for (const auto& index : shape.mesh.indices)
+    {
+      Vertex vertex = {};
+
+      if (index.vertex_index >=0)
+      {
+        vertex.pos =
+        {
+          attributes.vertices[3 * index.vertex_index + 0],
+          attributes.vertices[3 * index.vertex_index + 1],
+          attributes.vertices[3 * index.vertex_index + 2]
+        };
+      }
+
+      if (index.texcoord_index >= 0)
+      {
+        vertex.texCoord =
+        {
+          attributes.texcoords[2 * index.texcoord_index + 0],
+          1.0f - attributes.texcoords[2 * index.texcoord_index + 1]
+        };
+      }
+
+      vertex.color = {0.0f, 0.0f, 0.0f};
+
+      if (uniqueVertices.count(vertex) == 0)
+      {
+        uniqueVertices[vertex] = m_vertices.size();
+        m_vertices.push_back(vertex);
+      }
+
+      m_indices.push_back(uniqueVertices[vertex]);
+    }
+  }
 }
 
 VkFormat HelloTriangle::findSupportedFormat(const std::vector<VkFormat>& _candidates,

@@ -12,4 +12,5 @@ CMakeCache.txt
 **.jpg
 **.jpeg
 **.pdf
+**.obj
 compile_commands.json

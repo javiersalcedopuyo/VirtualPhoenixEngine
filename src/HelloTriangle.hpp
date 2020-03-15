@@ -46,6 +46,8 @@
 
 //#include "Managers/DevicesManager.hpp"
 
+constexpr bool MSAA_ENABLED = true;
+
 constexpr int WIDTH  = 800;
 constexpr int HEIGTH = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -209,6 +211,12 @@ private:
   VkDeviceMemory m_depthMemory;
   VkImageView    m_depthImageView;
 
+  // MSAA
+  VkImage               m_colorImage;
+  VkImageView           m_colorImageView;
+  VkDeviceMemory        m_colorImageMemory;
+  VkSampleCountFlagBits m_msaaSampleCount;
+
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
   void initWindow();
@@ -277,6 +285,8 @@ private:
   void     createDepthResources();
   VkFormat findDepthFormat();
 
+  void createColorResources();
+
   VkFormat findSupportedFormat(const std::vector<VkFormat>& _candidates,
                                const VkImageTiling          _tiling,
                                const VkFormatFeatureFlags   _features);
@@ -291,6 +301,7 @@ private:
   void createImage(const uint32_t              _width,
                    const uint32_t              _height,
                    const uint32_t              _mipLevels,
+                   const VkSampleCountFlagBits _sampleCount,
                    const VkFormat              _format,
                    const VkImageTiling         _tiling,
                    const VkImageUsageFlags     _usage,
@@ -314,6 +325,8 @@ private:
                              uint32_t _mipLevels);
 
   void loadModel();
+
+  VkSampleCountFlagBits getMaxUsableSampleCount();
 
   void createBuffer(const VkDeviceSize          _size,
                     const VkBufferUsageFlags    _usage,

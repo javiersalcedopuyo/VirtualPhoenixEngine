@@ -6,5 +6,11 @@ build/
 sourceFiles
 Makefile
 CMakeCache.txt
-*.cmake
+**.cmake
+**.spv
+**.png
+**.jpg
+**.jpeg
+**.pdf
+**.obj
 compile_commands.json

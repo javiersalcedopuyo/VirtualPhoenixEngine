@@ -45,6 +45,7 @@
 #include <chrono>
 
 //#include "Managers/DevicesManager.hpp"
+#include "VPCamera.hpp"
 
 constexpr bool MSAA_ENABLED = true;
 
@@ -149,16 +150,31 @@ struct ModelViewProjUBO
   alignas(16) glm::mat4 proj;
 };
 
-class HelloTriangle
+class VPRenderer
 {
 public:
-  HelloTriangle();
-  ~HelloTriangle();
-  void Run();
+  VPRenderer();
+  ~VPRenderer();
+
+  void init();
+  void mainLoop();
+  void cleanUp();
+
+  inline void setCamera(glm::vec3 _position, glm::vec3 _forward, glm::vec3 _up,
+                        float _fov = 45.0f,  float _far = 10.0f, float _near = 0.1f)
+  {
+    m_camera.fieldOfView = glm::radians(_fov);
+    m_camera.far         = _far;
+    m_camera.near        = _near;
+    m_camera.position    = _position;
+    m_camera.up          = _up;
+    m_camera.forward     = _forward;
+  }
 
 private:
   GLFWwindow*  m_window;
   VkSurfaceKHR m_surface;
+  VPCamera     m_camera; // TODO: Multi-camera
 
   VkInstance       m_vkInstance;
   VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
@@ -189,6 +205,10 @@ private:
   std::vector<VkSemaphore> m_renderFinishedSemaphores;
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
+
+  // TODO: Move into Camera class
+  glm::mat4 m_projectionMatrix;
+  glm::mat4 m_viewMatrix;
 
   std::vector<Vertex>   m_vertices;
   std::vector<uint32_t> m_indices;
@@ -222,9 +242,7 @@ private:
   void initWindow();
   void createVkInstance();
   void initVulkan();
-  void mainLoop();
   void drawFrame();
-  void cleanUp();
 
   void createSurface();
 
@@ -343,7 +361,7 @@ private:
 
   static void FramebufferResizeCallback(GLFWwindow* _window, int _width, int _height)
   {
-    HelloTriangle* app = reinterpret_cast<HelloTriangle*>(glfwGetWindowUserPointer(_window));
+    VPRenderer* app = reinterpret_cast<VPRenderer*>(glfwGetWindowUserPointer(_window));
     app->m_frameBufferResized = true;
     // Just so the compiler doesn't complain TODO: Whitelist this
     ++_width;

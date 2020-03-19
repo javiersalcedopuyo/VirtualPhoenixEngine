@@ -31,7 +31,9 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 }
 
 VPRenderer::VPRenderer() :
-  m_window(nullptr),
+  m_pUserInputController(nullptr),
+  m_pWindow(nullptr),
+  m_pCamera(nullptr),
   m_frameBufferResized(false),
   m_currentFrame(0),
   m_msaaSampleCount(VK_SAMPLE_COUNT_1_BIT)
@@ -42,6 +44,7 @@ void VPRenderer::init()
 {
   initWindow();
   initVulkan();
+  m_pUserInputController = new VPUserInputController();
 }
 
 void VPRenderer::initWindow()
@@ -51,10 +54,10 @@ void VPRenderer::initWindow()
   // Don't create a OpenGL context
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-  m_window = glfwCreateWindow(WIDTH, HEIGTH, "Virtual Phoenix Engine (Vulkan)", nullptr, nullptr);
+  m_pWindow = glfwCreateWindow(WIDTH, HEIGTH, "Virtual Phoenix Engine (Vulkan)", nullptr, nullptr);
 
-  glfwSetWindowUserPointer(m_window, this);
-  glfwSetFramebufferSizeCallback(m_window, FramebufferResizeCallback);
+  glfwSetWindowUserPointer(m_pWindow, this);
+  glfwSetFramebufferSizeCallback(m_pWindow, FramebufferResizeCallback);
 }
 
 void VPRenderer::initVulkan()
@@ -88,7 +91,7 @@ void VPRenderer::initVulkan()
 
 void VPRenderer::createSurface()
 {
-  if (glfwCreateWindowSurface(m_vkInstance, m_window, nullptr, &m_surface) != VK_SUCCESS)
+  if (glfwCreateWindowSurface(m_vkInstance, m_pWindow, nullptr, &m_surface) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create the surface window.");
 }
 
@@ -339,8 +342,26 @@ void VPRenderer::drawFrame()
 
 void VPRenderer::mainLoop()
 {
-  while (!glfwWindowShouldClose(m_window))
+  double currentTime = 0.0;
+  double lastTime    = glfwGetTime();
+  float  deltaTime   = 0.0f;
+  float  moveSpeed   = 0.001f;
+
+  VPUserInputContext userInputCtx;
+  userInputCtx.window        = m_pWindow;
+  userInputCtx.camera        = m_pCamera;
+  userInputCtx.deltaTime     = deltaTime;
+  userInputCtx.movementSpeed = moveSpeed;
+
+  while (!glfwWindowShouldClose(m_pWindow))
   {
+    currentTime = glfwGetTime();
+    deltaTime   = static_cast<float>(currentTime - lastTime);
+
+    userInputCtx.deltaTime = deltaTime;
+
+    m_pUserInputController->processInput(userInputCtx);
+
     glfwPollEvents();
     drawFrame();
   }
@@ -497,7 +518,7 @@ VkExtent2D VPRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabil
 
   int width  = 0;
   int height = 0;
-  glfwGetFramebufferSize(m_window, &width, &height);
+  glfwGetFramebufferSize(m_pWindow, &width, &height);
 
   VkExtent2D result = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
@@ -569,9 +590,7 @@ void VPRenderer::createSwapChain()
 void VPRenderer::cleanUpSwapChain()
 {
   if (MSAA_ENABLED)
-  { // FIXME: Validation layers complain when MSAA is enabled and the window is resized:
-    //   vkCreateSwapchainKHR() called with imageExtent which is outside the bounds returned by
-    //   vkGetPhysicalDeviceSurfaceCapabilitiesKHR()
+  { // FIXME: Validation layers complain when MSAA is enabled and the window is resized. (Issue)
     vkDestroyImageView(m_logicalDevice, m_colorImageView, nullptr);
     vkDestroyImage(m_logicalDevice, m_colorImage, nullptr);
     vkFreeMemory(m_logicalDevice, m_colorImageMemory, nullptr);
@@ -606,10 +625,10 @@ void VPRenderer::cleanUpSwapChain()
 void VPRenderer::recreateSwapChain()
 {
   int width=0, height=0;
-  glfwGetFramebufferSize(m_window, &width, &height);
+  glfwGetFramebufferSize(m_pWindow, &width, &height);
   while (width == 0 || height == 0)
   { // If the window is minimized, wait until it's in the foreground again
-    glfwGetFramebufferSize(m_window, &width, &height);
+    glfwGetFramebufferSize(m_pWindow, &width, &height);
     glfwWaitEvents();
   }
 
@@ -1002,7 +1021,7 @@ void VPRenderer::createCommandPool()
 void VPRenderer::createCommandBuffers()
 {
   std::array<VkClearValue, 2> clearValues = {};
-  clearValues[0].color        = CLEAR_COLOR_BLACK;
+  clearValues[0].color        = CLEAR_COLOR_GREY;
   clearValues[1].depthStencil = {1.0f, 0};
 
   m_commandBuffers.resize(m_swapChainFrameBuffers.size());
@@ -1230,16 +1249,18 @@ void VPRenderer::updateUniformBuffer(const size_t _idx)
          float time        = std::chrono::duration<float, std::chrono::seconds::period>
                              (currentTime - startTime).count();
 
-  float aspectRatio = static_cast<float>(m_swapChainExtent.width) /
-                      static_cast<float>(m_swapChainExtent.height);
+  if (m_pCamera == nullptr) m_pCamera = new VPCamera();
+
+  m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
+                           static_cast<float>(m_swapChainExtent.height) );
 
   ModelViewProjUBO mvpUBO = {};
   mvpUBO.model = glm::rotate(glm::mat4(1.0f),              // Identity matrix (original model)
                              time * glm::radians(90.0f),   // Rotation angle (90° per second)
                              glm::vec3(0.0f, 0.0f, 1.0f)); // Up axis
 
-  mvpUBO.view  = m_camera.getViewMat();
-  mvpUBO.proj  = m_camera.getProjMat(aspectRatio);
+  mvpUBO.view  = m_pCamera->getViewMat();
+  mvpUBO.proj  = m_pCamera->getProjMat();
 
   // Copy to the buffer
   void* data;
@@ -1557,7 +1578,7 @@ void VPRenderer::createTextureSampler()
   samplerInfo.compareOp               = VK_COMPARE_OP_ALWAYS;
   samplerInfo.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
   samplerInfo.mipLodBias              = 0.0f;
-  samplerInfo.minLod                  = 0.0f;
+  samplerInfo.minLod                  = 5.0f;
   samplerInfo.maxLod                  = m_mipLevels;
 
   if (vkCreateSampler(m_logicalDevice, &samplerInfo, nullptr, &m_textureSampler) != VK_SUCCESS)
@@ -1849,6 +1870,9 @@ void VPRenderer::createSyncObjects()
 
 void VPRenderer::cleanUp()
 {
+  if (m_pCamera != nullptr) delete m_pCamera;
+  if (m_pUserInputController != nullptr) delete m_pUserInputController;
+
   if (ENABLE_VALIDATION_LAYERS)
     DestroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
 
@@ -1872,6 +1896,6 @@ void VPRenderer::cleanUp()
   vkDestroyDevice(m_logicalDevice, nullptr);
   vkDestroySurfaceKHR(m_vkInstance, m_surface, nullptr);
   vkDestroyInstance(m_vkInstance, nullptr);
-  glfwDestroyWindow(m_window);
+  glfwDestroyWindow(m_pWindow);
   glfwTerminate();
 }

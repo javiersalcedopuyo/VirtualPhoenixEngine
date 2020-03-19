@@ -43,17 +43,21 @@
 #include <glm/gtx/hash.hpp>
 
 #include <chrono>
+#include <functional>
 
 //#include "Managers/DevicesManager.hpp"
 #include "VPCamera.hpp"
+#include "VPUserInputController.hpp"
 
-constexpr bool MSAA_ENABLED = true;
+// TODO: Make it toggleable
+constexpr bool MSAA_ENABLED = false;
 
 constexpr int WIDTH  = 800;
 constexpr int HEIGTH = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
+constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
+constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
 
 const char* const TEXTURE_PATH = "../Textures/ColorTestTex.png";
 const char* const MODEL_PATH   = "../Models/StanfordDragonWithUvs.obj";
@@ -156,6 +160,8 @@ public:
   VPRenderer();
   ~VPRenderer();
 
+  VPUserInputController* m_pUserInputController;
+
   void init();
   void mainLoop();
   void cleanUp();
@@ -163,18 +169,26 @@ public:
   inline void setCamera(glm::vec3 _position, glm::vec3 _forward, glm::vec3 _up,
                         float _fov = 45.0f,  float _far = 10.0f, float _near = 0.1f)
   {
-    m_camera.fieldOfView = glm::radians(_fov);
-    m_camera.far         = _far;
-    m_camera.near        = _near;
-    m_camera.position    = _position;
-    m_camera.up          = _up;
-    m_camera.forward     = _forward;
+    if (m_pCamera == nullptr)
+    {
+      m_pCamera = new VPCamera(_position, _forward, _up,
+                              _near,     _far,     _fov, 1.0f);
+    }
+    else
+    {
+      m_pCamera->setFoV(_fov, false);
+      m_pCamera->setFar(_far, false);
+      m_pCamera->setNear(_near, false);
+      m_pCamera->setPosition(_position, false);
+      m_pCamera->setUp(_up, false);
+      m_pCamera->setForward(_forward);
+    }
   }
 
 private:
-  GLFWwindow*  m_window;
-  VkSurfaceKHR m_surface;
-  VPCamera     m_camera; // TODO: Multi-camera
+  GLFWwindow*            m_pWindow;
+  VkSurfaceKHR           m_surface;
+  VPCamera*              m_pCamera; // TODO: Multi-camera
 
   VkInstance       m_vkInstance;
   VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance

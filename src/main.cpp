@@ -17,7 +17,13 @@ int main()
     // Defaults: FoV: 45, Far: 10, Near: 0.1
     renderer.setCamera(cameraPos, cameraForward, cameraUp);
 
-    // renderer.createObj();
+    if (renderer.m_pUserInputController == nullptr)
+      std::cout << "WARNING: No User Input Controller!" << std::endl;
+    else
+      renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementWASD );
+      //renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementArrows );
+
+    // TODO: renderer.createObj();
 
     renderer.mainLoop();
     renderer.cleanUp();

@@ -345,24 +345,30 @@ void VPRenderer::mainLoop()
   double currentTime = 0.0;
   double lastTime    = glfwGetTime();
   float  deltaTime   = 0.0f;
-  float  moveSpeed   = 0.001f;
+  float  moveSpeed   = 10.0f;
+  float  rotateSpeed = 100.0f;
 
   VPUserInputContext userInputCtx;
-  userInputCtx.window        = m_pWindow;
-  userInputCtx.camera        = m_pCamera;
-  userInputCtx.deltaTime     = deltaTime;
-  userInputCtx.movementSpeed = moveSpeed;
+  userInputCtx.window            = m_pWindow;
+  userInputCtx.camera            = m_pCamera;
+  userInputCtx.deltaTime         = deltaTime;
+  userInputCtx.cameraMoveSpeed   = moveSpeed;
+  userInputCtx.cameraRotateSpeed = rotateSpeed;
 
   while (!glfwWindowShouldClose(m_pWindow))
   {
     currentTime = glfwGetTime();
     deltaTime   = static_cast<float>(currentTime - lastTime);
+    lastTime    = currentTime;
 
     userInputCtx.deltaTime = deltaTime;
-
-    m_pUserInputController->processInput(userInputCtx);
+    *m_pUserInputController->m_pScrollY = 0;
 
     glfwPollEvents();
+
+    userInputCtx.scrollY = *m_pUserInputController->m_pScrollY;
+    m_pUserInputController->processInput(userInputCtx);
+
     drawFrame();
   }
 

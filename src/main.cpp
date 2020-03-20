@@ -1,5 +1,10 @@
 #include "VPRenderer.hpp"
 
+static double s_scrollY = 0;
+
+// To avoid de compiler complaining
+#define NOT_USED(x) ( (void)(x) )
+
 int main()
 {
   VPRenderer renderer;
@@ -16,6 +21,16 @@ int main()
 
     // Defaults: FoV: 45, Far: 10, Near: 0.1
     renderer.setCamera(cameraPos, cameraForward, cameraUp);
+
+    glfwSetScrollCallback(renderer.getActiveWindow(),
+                          [](GLFWwindow* w, double x, double y)
+                          {
+                            NOT_USED(w);
+                            NOT_USED(x);
+                            s_scrollY = y;
+                          });
+
+    renderer.m_pUserInputController->m_pScrollY = &s_scrollY;
 
     if (renderer.m_pUserInputController == nullptr)
       std::cout << "WARNING: No User Input Controller!" << std::endl;

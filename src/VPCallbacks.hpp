@@ -7,39 +7,79 @@
 
 #include <GLFW/glfw3.h>
 #include <functional>
+#include <array>
 
 #include "VPCamera.hpp"
 
-
 struct VPUserInputContext
 {
-  void*       pData;
-  float       movementSpeed;
-  float       deltaTime;
+  void* pData;
+  float cameraMoveSpeed;
+  float cameraRotateSpeed;
+  float deltaTime;
+  float scrollY;
+
+  std::array<double,2> cursorDelta;
+
   VPCamera*   camera;
   GLFWwindow* window;
 };
 
 namespace VPCallbacks
 {
-  constexpr glm::vec3 UP    = glm::vec3( 0.0f,  0.0f,  1.0f);
-  constexpr glm::vec3 DOWN  = glm::vec3( 0.0f,  0.0f, -1.0f);
-  constexpr glm::vec3 LEFT  = glm::vec3(-1.0f,  0.0f,  0.0f);
-  constexpr glm::vec3 RIGHT = glm::vec3( 1.0f,  0.0f,  0.0f);
-  constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  1.0f,  0.0f);
-  constexpr glm::vec3 BACK  = glm::vec3( 0.0f, -1.0f,  0.0f);
-
   static inline void cameraMovementWASD(VPUserInputContext& _ctx)
   {
     if (_ctx.camera == nullptr) return;
 
-    float     distance  = _ctx.movementSpeed * _ctx.deltaTime;
+    float     angle     = _ctx.cameraRotateSpeed * _ctx.deltaTime;
+    float     distance  = _ctx.cameraMoveSpeed * _ctx.deltaTime;
     glm::vec3 direction = glm::vec3();
 
-    if (glfwGetKey(_ctx.window, GLFW_KEY_W) == GLFW_PRESS) direction += FRONT;
-    if (glfwGetKey(_ctx.window, GLFW_KEY_S) == GLFW_PRESS) direction += BACK;
-    if (glfwGetKey(_ctx.window, GLFW_KEY_A) == GLFW_PRESS) direction += LEFT;
-    if (glfwGetKey(_ctx.window, GLFW_KEY_D) == GLFW_PRESS) direction += RIGHT;
+    if (glfwGetMouseButton(_ctx.window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+    { // Rotate the camera by dragging
+      float panAngle  = 0;
+      float tiltAngle = 0;
+
+      if (!_ctx.cursorDelta.empty())
+      {
+        panAngle  = -angle * _ctx.cursorDelta[0];
+        tiltAngle = -angle * _ctx.cursorDelta[1];
+      }
+
+      _ctx.camera->rotate(RIGHT * tiltAngle);
+      _ctx.camera->rotate(UP    * panAngle);
+    }
+
+    if (glfwGetMouseButton(_ctx.window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS)
+    { // Move camera by dragging
+      if (!_ctx.cursorDelta.empty())
+      {
+        direction += LEFT * static_cast<float>(_ctx.cursorDelta[0]) +
+                     UP   * static_cast<float>(_ctx.cursorDelta[1]);
+
+        distance  *= direction.length();
+      }
+
+      if (direction != glm::vec3(0)) direction = glm::normalize(direction);
+      _ctx.camera->translate( direction * distance );
+
+      direction = glm::vec3(0);
+      distance  = _ctx.cameraMoveSpeed * _ctx.deltaTime;
+    }
+
+    if (_ctx.scrollY != 0.0f)
+    {
+      direction += FRONT * _ctx.scrollY;
+      distance  *= 10.0f;
+    }
+    else
+    {
+      // DOUBT: Should I use Ctrl + key instead?
+      if (glfwGetKey(_ctx.window, GLFW_KEY_W) == GLFW_PRESS) direction += FRONT;
+      if (glfwGetKey(_ctx.window, GLFW_KEY_S) == GLFW_PRESS) direction += BACK;
+      if (glfwGetKey(_ctx.window, GLFW_KEY_A) == GLFW_PRESS) direction += LEFT;
+      if (glfwGetKey(_ctx.window, GLFW_KEY_D) == GLFW_PRESS) direction += RIGHT;
+    }
 
     if (direction != glm::vec3(0)) direction = glm::normalize(direction);
 
@@ -50,7 +90,7 @@ namespace VPCallbacks
   {
     if (_ctx.camera == nullptr) return;
 
-    float     distance  = _ctx.movementSpeed * _ctx.deltaTime;
+    float     distance  = _ctx.cameraMoveSpeed * _ctx.deltaTime;
     glm::vec3 direction = glm::vec3();
 
     if (glfwGetKey(_ctx.window, GLFW_KEY_UP)    == GLFW_PRESS) direction += FRONT;

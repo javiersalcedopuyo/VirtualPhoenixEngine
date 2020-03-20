@@ -1,7 +1,19 @@
 #ifndef VP_CAMERA_HPP
 #define VP_CAMERA_HPP
 
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#endif
+
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+
+constexpr glm::vec3 UP    = glm::vec3( 0.0f,  0.0f,  1.0f);
+constexpr glm::vec3 DOWN  = glm::vec3( 0.0f,  0.0f, -1.0f);
+constexpr glm::vec3 LEFT  = glm::vec3(-1.0f,  0.0f,  0.0f);
+constexpr glm::vec3 RIGHT = glm::vec3( 1.0f,  0.0f,  0.0f);
+constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  1.0f,  0.0f);
+constexpr glm::vec3 BACK  = glm::vec3( 0.0f, -1.0f,  0.0f);
 
 class VPCamera
 {
@@ -91,7 +103,21 @@ public:
 
     view      = glm::lookAt(position, position + forward, up);
   }
-  // TODO: Gimball Lock safe rotation
+
+  inline void rotate(const glm::vec3& _eulerAngles)
+  { // TODO: Use quaternions
+    // I'm using Y -> Z -> X to avoid gimball lock, since we are not rolling (our UP is Z)
+    //Roll
+    forward = glm::rotate(forward, glm::radians(_eulerAngles.y), forward);
+    // Pan
+    forward = glm::rotate(forward, glm::radians(_eulerAngles.z), up);
+    // Tilt
+    forward = glm::rotate(forward, glm::radians(_eulerAngles.x), glm::cross(forward, up));
+
+    forward = glm::normalize(forward); // Is it really necessary?
+
+    view    = glm::lookAt(position, position + forward, up);
+  }
 
   inline glm::mat4 getProjMat()  const { return projection; }
   inline glm::mat4 getViewMat()  const { return view; }

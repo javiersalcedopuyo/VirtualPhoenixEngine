@@ -12,7 +12,7 @@ int main()
   std::cout << "Starting..." << std::endl;
 
   glm::vec3 cameraUp      = glm::vec3(0.0f, 0.0f, 1.0f);
-  glm::vec3 cameraPos     = glm::vec3(2.0f, 2.0f, 3.0f);
+  glm::vec3 cameraPos     = glm::vec3(0.0f, -3.0f, 2.5f);
   glm::vec3 cameraForward = glm::normalize(-cameraPos);
 
   try

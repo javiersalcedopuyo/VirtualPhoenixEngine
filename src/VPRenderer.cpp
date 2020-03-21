@@ -346,7 +346,7 @@ void VPRenderer::mainLoop()
   double lastTime    = glfwGetTime();
   float  deltaTime   = 0.0f;
   float  moveSpeed   = 10.0f;
-  float  rotateSpeed = 100.0f;
+  float  rotateSpeed = 10.0f;
 
   VPUserInputContext userInputCtx;
   userInputCtx.window            = m_pWindow;
@@ -668,9 +668,9 @@ void VPRenderer::createImageViews()
 }
 
 VkImageView VPRenderer::createImageView(const VkImage&           _image,
-                                           const VkFormat&          _format,
-                                           const VkImageAspectFlags _aspectFlags,
-                                           const uint32_t           _mipLevels)
+                                        const VkFormat&          _format,
+                                        const VkImageAspectFlags _aspectFlags,
+                                        const uint32_t           _mipLevels)
 {
   VkImageView result;
 
@@ -1205,10 +1205,10 @@ void VPRenderer::createUniformBuffers()
 }
 
 void VPRenderer::createBuffer(const VkDeviceSize          _size,
-                                 const VkBufferUsageFlags    _usage,
-                                 const VkMemoryPropertyFlags _properties,
-                                       VkBuffer&             _buffer,
-                                       VkDeviceMemory&       _bufferMemory)
+                              const VkBufferUsageFlags    _usage,
+                              const VkMemoryPropertyFlags _properties,
+                                    VkBuffer&             _buffer,
+                                    VkDeviceMemory&       _bufferMemory)
 {
   VkBufferCreateInfo bufferInfo = {};
   bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1357,7 +1357,7 @@ void VPRenderer::createTexture()
   int      texWidth     = 0;
   int      texHeight    = 0;
   int      texChannels  = 0;
-  VkFormat format       = VK_FORMAT_R8G8B8A8_UNORM;
+  VkFormat format       = VK_FORMAT_R8G8B8A8_UNORM; // TODO: get the format from the image itself
 
   stbi_uc* pixels = stbi_load(TEXTURE_PATH, // TODO: Pass the path as a parameter
                               &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -1415,15 +1415,15 @@ void VPRenderer::createTexture()
 }
 
 void VPRenderer::createImage(const uint32_t              _width,
-                                const uint32_t              _height,
-                                const uint32_t              _mipLevels,
-                                const VkSampleCountFlagBits _sampleCount,
-                                const VkFormat              _format,
-                                const VkImageTiling         _tiling,
-                                const VkImageUsageFlags     _usage,
-                                const VkMemoryPropertyFlags _properties,
-                                      VkImage&              _image,
-                                      VkDeviceMemory&       _imageMemory)
+                             const uint32_t              _height,
+                             const uint32_t              _mipLevels,
+                             const VkSampleCountFlagBits _sampleCount,
+                             const VkFormat              _format,
+                             const VkImageTiling         _tiling,
+                             const VkImageUsageFlags     _usage,
+                             const VkMemoryPropertyFlags _properties,
+                                   VkImage&              _image,
+                                   VkDeviceMemory&       _imageMemory)
 {
   VkImageCreateInfo imageInfo = {};
   imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1584,7 +1584,7 @@ void VPRenderer::createTextureSampler()
   samplerInfo.compareOp               = VK_COMPARE_OP_ALWAYS;
   samplerInfo.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
   samplerInfo.mipLodBias              = 0.0f;
-  samplerInfo.minLod                  = 5.0f;
+  samplerInfo.minLod                  = 0.0f;
   samplerInfo.maxLod                  = m_mipLevels;
 
   if (vkCreateSampler(m_logicalDevice, &samplerInfo, nullptr, &m_textureSampler) != VK_SUCCESS)
@@ -1592,10 +1592,10 @@ void VPRenderer::createTextureSampler()
 }
 
 void VPRenderer::transitionImageLayout(const VkImage& _image,
-                                          const VkFormat _format,
-                                          const VkImageLayout& _oldLayout,
-                                          const VkImageLayout& _newLayout,
-                                          const uint32_t       _mipLevels = 1)
+                                       const VkFormat _format,
+                                       const VkImageLayout& _oldLayout,
+                                       const VkImageLayout& _newLayout,
+                                       const uint32_t       _mipLevels = 1)
 {
   VkPipelineStageFlags srcStage;
   VkPipelineStageFlags dstStage;
@@ -1660,7 +1660,7 @@ void VPRenderer::transitionImageLayout(const VkImage& _image,
 }
 
 void VPRenderer::copyBufferToImage(const VkBuffer& _buffer,       VkImage& _image,
-                                      const uint32_t  _width,  const uint32_t _height)
+                                   const uint32_t  _width,  const uint32_t _height)
 {
   VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1761,6 +1761,16 @@ void VPRenderer::loadModel()
           attributes.vertices[3 * index.vertex_index + 0],
           attributes.vertices[3 * index.vertex_index + 1],
           attributes.vertices[3 * index.vertex_index + 2]
+        };
+      }
+
+      if (index.normal_index >= 0)
+      {
+        vertex.normal =
+        {
+          attributes.normals[3 * index.normal_index + 0],
+          attributes.normals[3 * index.normal_index + 1],
+          attributes.normals[3 * index.normal_index + 2]
         };
       }
 

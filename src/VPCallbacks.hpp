@@ -42,8 +42,8 @@ namespace VPCallbacks
 
       if (!_ctx.cursorDelta.empty())
       {
-        panAngle  = -angle * _ctx.cursorDelta[0];
-        tiltAngle = -angle * _ctx.cursorDelta[1];
+        panAngle  = -angle * _ctx.cursorDelta[0] * 50;
+        tiltAngle = -angle * _ctx.cursorDelta[1] * 50;
       }
 
       _ctx.camera->rotate(RIGHT * tiltAngle);
@@ -70,7 +70,7 @@ namespace VPCallbacks
     if (_ctx.scrollY != 0.0f)
     {
       direction += FRONT * _ctx.scrollY;
-      distance  *= 10.0f;
+      distance  *= 50.0f;
     }
     else
     {

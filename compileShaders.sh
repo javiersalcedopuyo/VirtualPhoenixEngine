@@ -1,2 +1,2 @@
-glslc src/Shaders/HelloTriangle.vert -o src/Shaders/vert.spv
-glslc src/Shaders/HelloTriangle.frag -o src/Shaders/frag.spv
+glslc src/Shaders/BlinnPhong.vert -o src/Shaders/vert.spv
+glslc src/Shaders/BlinnPhong.frag -o src/Shaders/frag.spv

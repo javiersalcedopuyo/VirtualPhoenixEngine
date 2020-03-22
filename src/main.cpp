@@ -38,7 +38,8 @@ int main()
       renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementWASD );
       //renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementArrows );
 
-    // TODO: renderer.createObj();
+    renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3(-1, 0, 0));
+    renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3( 1, 0, 0));
 
     renderer.mainLoop();
     renderer.cleanUp();

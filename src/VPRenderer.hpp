@@ -1,9 +1,6 @@
 #ifndef HELLO_TRIANGLE_HPP
 #define HELLO_TRIANGLE_HPP
 
-#ifndef GLFW_INCLUDE_VULKAN
-#define GLFW_INCLUDE_VULKAN
-#endif
 #ifndef GLM_FORCE_RADIANS
 #define GLM_FORCE_RADIANS
 #endif
@@ -14,15 +11,12 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #endif
 
-#include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <tiny_obj_loader.h>
 
 // Error management
 #include <stdexcept>
 #include <iostream>
-// Lambdas
-#include <functional>
 // EXIT_SUCCESS and EXIT_FAILURES
 #include <cstdlib>
 // Loading files
@@ -34,9 +28,9 @@
 #include <cstring>
 #include <set>
 #include <array>
-#include <vector>
 #include <unordered_map>
 #include <optional>
+#include <utility>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -48,6 +42,7 @@
 //#include "Managers/DevicesManager.hpp"
 #include "VPCamera.hpp"
 #include "VPUserInputController.hpp"
+#include "VPStdRenderableObject.hpp"
 
 // TODO: Make it toggleable
 constexpr bool MSAA_ENABLED = false;
@@ -60,7 +55,6 @@ constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
 
 const char* const TEXTURE_PATH = "../Textures/Default.png";
-const char* const MODEL_PATH   = "../Models/StanfordDragonWithUvs.obj";
 
 const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
 const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
@@ -91,72 +85,6 @@ typedef struct
 
 } SwapChainDetails_t;
 
-struct Vertex
-{
-  bool operator==(const Vertex& other) const
-  {
-    return pos      == other.pos    &&
-           color    == other.color  &&
-           normal   == other.normal &&
-           texCoord == other.texCoord;
-  }
-
-  glm::vec2 texCoord;
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec3 normal;
-
-  static VkVertexInputBindingDescription getBindingDescription()
-  {
-    VkVertexInputBindingDescription bd = {};
-    bd.binding   = 0;
-    bd.stride    = sizeof(Vertex);
-    bd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    return bd;
-  }
-
-  static std::array<VkVertexInputAttributeDescription,4> getAttributeDescritions()
-  {
-    std::array<VkVertexInputAttributeDescription,4> descriptions = {};
-    descriptions[0].binding  = 0;
-    descriptions[0].location = 0;
-    descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[0].offset   = offsetof(Vertex, pos);
-
-    descriptions[1].binding  = 0;
-    descriptions[1].location = 1;
-    descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[1].offset   = offsetof(Vertex, color);
-
-    descriptions[2].binding  = 0;
-    descriptions[2].location = 2;
-    descriptions[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[2].offset   = offsetof(Vertex, normal);
-
-    descriptions[3].binding  = 0;
-    descriptions[3].location = 3;
-    descriptions[3].format   = VK_FORMAT_R32G32_SFLOAT;
-    descriptions[3].offset   = offsetof(Vertex, texCoord);
-
-    return descriptions;
-  }
-};
-
-// Needed to use Vertex as keys in an unordered map
-namespace std {
-  template <> struct hash<Vertex>
-  {
-    size_t operator()(Vertex const& vertex) const
-    {
-      return ((((hash<glm::vec3>()(vertex.pos) ^
-                (hash<glm::vec3>()(vertex.color) << 1)) >>1) ^
-                (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
-                (hash<glm::vec2>()(vertex.texCoord) << 1);
-    }
-  };
-}
-
 struct ModelViewProjUBO
 {
   alignas(16) glm::mat4 model;
@@ -175,6 +103,8 @@ public:
   void init();
   void mainLoop();
   void cleanUp();
+
+  uint32_t createObject(const char* _modelPath, const glm::vec3& _pos);
 
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }
 
@@ -232,17 +162,8 @@ private:
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
 
-  // TODO: Move into Camera class
-  glm::mat4 m_projectionMatrix;
-  glm::mat4 m_viewMatrix;
-
-  std::vector<Vertex>   m_vertices;
-  std::vector<uint32_t> m_indices;
-
-  VkBuffer       m_vertexBuffer;
-  VkBuffer       m_indexBuffer;
-  VkDeviceMemory m_vertexBufferMemory;
-  VkDeviceMemory m_indexBufferMemory;
+  std::vector<VPStdRenderableObject> m_renderableObjects;
+  std::vector<VPMaterial>         m_materials;
 
   std::vector<VkBuffer>       m_uniformBuffers;
   std::vector<VkDeviceMemory> m_uniformBuffersMemory;
@@ -314,8 +235,14 @@ private:
 
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
-  void           createVertexBuffer();
-  void           createIndexBuffer();
+
+  void fillBuffer(      VkBuffer&             _buffer,
+                        VkDeviceMemory&       _memory,
+                  const VkDeviceSize          _size,
+                  const VkBufferUsageFlags    _usage,
+                  const VkMemoryPropertyFlags _properties,
+                        void*                 _data);
+
   void           createUniformBuffers();
   void           updateUniformBuffer(const size_t _idx);
   void           createDescriptorPool();
@@ -368,7 +295,7 @@ private:
                              int      _height,
                              uint32_t _mipLevels);
 
-  void loadModel();
+  std::pair<std::vector<Vertex>, std::vector<uint32_t>> loadModel(const char* _path);
 
   VkSampleCountFlagBits getMaxUsableSampleCount();
 

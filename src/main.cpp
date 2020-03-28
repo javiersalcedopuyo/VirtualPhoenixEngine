@@ -38,8 +38,13 @@ int main()
       renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementWASD );
       //renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementArrows );
 
-    renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3(-1, 0, 0));
-    renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3( 1, 0, 0));
+    uint32_t dragonIdx1 = renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3(-1,0,0));
+    uint32_t dragonIdx2 = renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3( 1,0,0));
+
+    uint32_t newMaterialIdx = renderer.createMaterial(DEFAULT_VERT, DEFAULT_FRAG, "../Textures/ColorTestTex.png");
+
+    renderer.setObjMaterial(dragonIdx1, newMaterialIdx);
+    renderer.setObjMaterial(dragonIdx2, DEFAULT_MATERIAL_IDX);
 
     renderer.mainLoop();
     renderer.cleanUp();

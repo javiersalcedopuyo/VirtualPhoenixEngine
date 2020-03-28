@@ -2,7 +2,13 @@
 #define VP_RENDERABLE_OBJECT_HPP
 
 #include "VPMaterial.hpp"
-#include <glm/gtx/hash.hpp>
+
+struct ModelViewProjUBO
+{
+  alignas(16) glm::mat4 model;
+  alignas(16) glm::mat4 view;
+  alignas(16) glm::mat4 proj;
+};
 
 struct Vertex
 {
@@ -19,7 +25,7 @@ struct Vertex
   glm::vec3 color;
   glm::vec3 normal;
 
-  static VkVertexInputBindingDescription getBindingDescription()
+  static inline VkVertexInputBindingDescription getBindingDescription()
   {
     VkVertexInputBindingDescription bd = {};
     bd.binding   = 0;
@@ -29,7 +35,7 @@ struct Vertex
     return bd;
   }
 
-  static std::array<VkVertexInputAttributeDescription,4> getAttributeDescritions()
+  static inline std::array<VkVertexInputAttributeDescription,4> getAttributeDescriptions()
   {
     std::array<VkVertexInputAttributeDescription,4> descriptions = {};
     descriptions[0].binding  = 0;
@@ -72,7 +78,7 @@ namespace std {
 
 struct VPStdRenderableObject
 {
-  VPStdRenderableObject() : material(nullptr) {};
+  VPStdRenderableObject() : pMaterial(nullptr), descriptorSet(VK_NULL_HANDLE) {};
 
   // Raw data
   glm::mat4             model;
@@ -82,20 +88,45 @@ struct VPStdRenderableObject
   // Buffers and memory
   VkBuffer       vertexBuffer;
   VkBuffer       indexBuffer;
+  VkBuffer       uniformBuffer;
   VkDeviceMemory vertexBufferMemory;
   VkDeviceMemory indexBufferMemory;
+  VkDeviceMemory uniformBufferMemory;
 
   // Misc
-  VPMaterial* material; // DOUBT: Should I use shared_ptr instead?
+  VPMaterial*     pMaterial; // DOUBT: Should I use shared_ptr instead?
+  VkDescriptorSet descriptorSet;
 
-  void cleanUp(const VkDevice& _logicalDevice)
+  inline void createUniformBuffers()
   {
-    vkDestroyBuffer(_logicalDevice, indexBuffer, nullptr);
-    vkDestroyBuffer(_logicalDevice, vertexBuffer, nullptr);
-    vkFreeMemory(_logicalDevice, vertexBufferMemory, nullptr);
-    vkFreeMemory(_logicalDevice, indexBufferMemory, nullptr);
+    VPMemoryBufferManager::getInstance().createBuffer(sizeof(ModelViewProjUBO),
+                                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                      &uniformBuffer,
+                                                      &uniformBufferMemory);
+  }
 
-    material = nullptr; // Not the owner
+  inline void setMaterial(VPMaterial* _newMat) { pMaterial = _newMat; }
+
+  inline void cleanUniformBuffers()
+  {
+    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+
+    vkDestroyBuffer(logicalDevice, uniformBuffer, nullptr);
+    vkFreeMemory(logicalDevice, uniformBufferMemory, nullptr);
+  }
+
+  inline void cleanUp()
+  {
+    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+
+    vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
+    vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+    vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+    vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
+
+    pMaterial = nullptr; // Not the owner
   }
 };
 

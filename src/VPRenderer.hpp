@@ -10,13 +10,14 @@
 #ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
 #endif
+#ifndef GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN
+#endif
 
-#include <stb_image.h>
+#include <GLFW/glfw3.h>
+
 #include <tiny_obj_loader.h>
 
-// Error management
-#include <stdexcept>
-#include <iostream>
 // EXIT_SUCCESS and EXIT_FAILURES
 #include <cstdlib>
 // Loading files
@@ -25,11 +26,9 @@
 #include <cstdint>
 // General use
 #include <string.h>
-#include <cstring>
 #include <set>
 #include <array>
 #include <unordered_map>
-#include <optional>
 #include <utility>
 
 #include <glm/glm.hpp>
@@ -42,7 +41,7 @@
 //#include "Managers/DevicesManager.hpp"
 #include "VPCamera.hpp"
 #include "VPUserInputController.hpp"
-#include "VPStdRenderableObject.hpp"
+#include "VPStdRenderPipeline.hpp"
 
 // TODO: Make it toggleable
 constexpr bool MSAA_ENABLED = false;
@@ -51,10 +50,10 @@ constexpr int WIDTH  = 800;
 constexpr int HEIGTH = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
+constexpr uint32_t DEFAULT_MATERIAL_IDX = 0;
+
 constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
-
-const char* const TEXTURE_PATH = "../Textures/Default.png";
 
 const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
 const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
@@ -85,13 +84,6 @@ typedef struct
 
 } SwapChainDetails_t;
 
-struct ModelViewProjUBO
-{
-  alignas(16) glm::mat4 model;
-  alignas(16) glm::mat4 view;
-  alignas(16) glm::mat4 proj;
-};
-
 class VPRenderer
 {
 public:
@@ -105,6 +97,18 @@ public:
   void cleanUp();
 
   uint32_t createObject(const char* _modelPath, const glm::vec3& _pos);
+  inline uint32_t createMaterial(const char* _vertShaderPath,
+                                 const char* _fragShaderPath,
+                                 const char* _texturePath)
+  {
+    m_pMaterials.push_back(new VPMaterial(_vertShaderPath, _fragShaderPath, _texturePath));
+    return m_pMaterials.size() - 1;
+  }
+
+  inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
+  {
+    m_pMaterials.at(_matIdx)->loadTexture(_path);
+  }
 
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }
 
@@ -127,16 +131,23 @@ public:
     }
   }
 
+  inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
+  {
+    m_renderableObjects.at(_objIdx).setMaterial( m_pMaterials.at(_matIdx) );
+    recreateSwapChain(); // FIXME: This is overkill
+  }
+
 private:
   GLFWwindow*            m_pWindow;
   VkSurfaceKHR           m_surface;
   VPCamera*              m_pCamera; // TODO: Multi-camera
 
-  VkInstance       m_vkInstance;
-  VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
-  VkDevice         m_logicalDevice;
-  VkQueue          m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
-  VkQueue          m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
+  VkInstance           m_vkInstance;
+  VkPhysicalDevice     m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
+  VkDevice             m_logicalDevice;
+  VkQueue              m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
+  VkQueue              m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
+  QueueFamilyIndices_t m_queueFamiliesIndices;
 
   bool                     m_frameBufferResized;
   VkSwapchainKHR           m_swapChain;
@@ -146,15 +157,8 @@ private:
   std::vector<VkImageView> m_swapChainImageViews;
 
   VkRenderPass                 m_renderPass;
-  VkDescriptorSetLayout        m_descriptorSetLayout;
-  VkDescriptorPool             m_descriptorPool;
-  std::vector<VkDescriptorSet> m_descriptorSets; // Implicitly destroyed alongside m_descriptorPool
-  VkPipelineLayout             m_pipelineLayout;
-  VkPipeline                   m_graphicsPipeline;
+  VPStdRenderPipeline*         m_pGraphicsPipeline;
   std::vector<VkFramebuffer>   m_swapChainFrameBuffers;
-
-  VkCommandPool m_commandPool;
-  std::vector<VkCommandBuffer> m_commandBuffers; // Implicitly destroyed alongside m_commandPool
 
   size_t m_currentFrame;
   std::vector<VkSemaphore> m_imageAvailableSemaphores;
@@ -163,16 +167,7 @@ private:
   std::vector<VkFence>     m_imagesInFlight;
 
   std::vector<VPStdRenderableObject> m_renderableObjects;
-  std::vector<VPMaterial>         m_materials;
-
-  std::vector<VkBuffer>       m_uniformBuffers;
-  std::vector<VkDeviceMemory> m_uniformBuffersMemory;
-
-  uint32_t       m_mipLevels;
-  VkImage        m_texture;
-  VkDeviceMemory m_textureMemory;
-  VkImageView    m_textureImageView;
-  VkSampler      m_textureSampler;
+  std::vector<VPMaterial*>           m_pMaterials;
 
   VkImage        m_depthImage;
   VkDeviceMemory m_depthMemory;
@@ -216,48 +211,26 @@ private:
   void               cleanUpSwapChain();
   void               recreateSwapChain();
   void               createImageViews();
-  VkImageView        createImageView(const VkImage&           _image,
-                                     const VkFormat&          _format,
-                                     const VkImageAspectFlags _aspectFlags,
-                                     const uint32_t           _mipLevels);
 
   // Pipeline
   void createRenderPass();
   void createGraphicsPipeline();
   void createFrameBuffers();
-  void createDescriptorSetLayout();
 
   // Command Buffers
-  void            createCommandPool();
-  void            createCommandBuffers();
-  VkCommandBuffer beginSingleTimeCommands();
-  void            endSingleTimeCommands(VkCommandBuffer& _commandBuffer);
+  void setupRenderCommands();
 
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
 
-  void fillBuffer(      VkBuffer&             _buffer,
-                        VkDeviceMemory&       _memory,
-                  const VkDeviceSize          _size,
-                  const VkBufferUsageFlags    _usage,
-                  const VkMemoryPropertyFlags _properties,
-                        void*                 _data);
-
-  void           createUniformBuffers();
-  void           updateUniformBuffer(const size_t _idx);
-  void           createDescriptorPool();
-  void           createDescriptorSets();
-
-  // Textures
-  void createTexture();
-  void createTextureImageView();
-  void createTextureSampler();
+  void updateUniformBuffer(const size_t _idx);
 
   void     createDepthResources();
   VkFormat findDepthFormat();
 
   void createColorResources();
 
+  // TODO: Move to VPImage?
   VkFormat findSupportedFormat(const std::vector<VkFormat>& _candidates,
                                const VkImageTiling          _tiling,
                                const VkFormatFeatureFlags   _features);
@@ -268,44 +241,9 @@ private:
            _format == VK_FORMAT_D24_UNORM_S8_UINT;
   }
 
-  // TODO: Refactor. Too many parameters
-  void createImage(const uint32_t              _width,
-                   const uint32_t              _height,
-                   const uint32_t              _mipLevels,
-                   const VkSampleCountFlagBits _sampleCount,
-                   const VkFormat              _format,
-                   const VkImageTiling         _tiling,
-                   const VkImageUsageFlags     _usage,
-                   const VkMemoryPropertyFlags _properties,
-                         VkImage&              _image,
-                         VkDeviceMemory&       _imageMemory);
-
-  void transitionImageLayout(const VkImage& _image,
-                             const VkFormat _format,
-                             const VkImageLayout& _oldLayout,
-                             const VkImageLayout& _newLayout,
-                             const uint32_t       _mipLevels);
-
-  void copyBufferToImage(const VkBuffer& _buffer,       VkImage& _image,
-                         const uint32_t  _width,  const uint32_t height);
-
-  void generateMipMaps(      VkImage& _image,
-                       const VkFormat _format,
-                             int      _width,
-                             int      _height,
-                             uint32_t _mipLevels);
-
   std::pair<std::vector<Vertex>, std::vector<uint32_t>> loadModel(const char* _path);
 
   VkSampleCountFlagBits getMaxUsableSampleCount();
-
-  void createBuffer(const VkDeviceSize          _size,
-                    const VkBufferUsageFlags    _usage,
-                    const VkMemoryPropertyFlags _properties,
-                          VkBuffer&             _buffer,
-                          VkDeviceMemory&       _bufferMemory);
-
-  void copyBuffer(const VkBuffer& _src, VkBuffer& _dst, const VkDeviceSize _size);
 
   uint32_t findMemoryType(const uint32_t              _typeFilter,
                           const VkMemoryPropertyFlags _properties);

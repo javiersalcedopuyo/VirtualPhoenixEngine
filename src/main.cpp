@@ -38,15 +38,43 @@ int main()
       renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementWASD );
       //renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementArrows );
 
-    uint32_t dragonIdx1 = renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3(-1,0,0));
-    uint32_t dragonIdx2 = renderer.createObject("../Models/StanfordDragonWithUvs.obj", glm::vec3( 1,0,0));
+    glm::mat4 modelMat1 = glm::mat4(1);
+    glm::mat4 modelMat2 = glm::mat4(1);
+
+    modelMat2 = glm::translate(modelMat1, glm::vec3( 1,0,0));
+    modelMat1 = glm::translate(modelMat1, glm::vec3(-1,0,0));
+
+    modelMat2 = glm::rotate(modelMat2,
+                            glm::radians(90.0f),          // Rotation angle
+                            glm::vec3(0.0f, 0.0f, 1.0f)); // Up axis
+
+    uint32_t dragonIdx1 = renderer.createObject("../Models/StanfordDragonWithUvs.obj", modelMat1);
+    uint32_t dragonIdx2 = renderer.createObject("../Models/StanfordDragonWithUvs.obj", modelMat2);
 
     uint32_t newMaterialIdx = renderer.createMaterial(DEFAULT_VERT, DEFAULT_FRAG, "../Textures/ColorTestTex.png");
 
     renderer.setObjMaterial(dragonIdx1, newMaterialIdx);
     renderer.setObjMaterial(dragonIdx2, DEFAULT_MATERIAL_IDX);
 
-    renderer.mainLoop();
+    auto rotateCB = [](const float _deltaTime, glm::mat4& _model)
+    {
+      _model = glm::rotate(_model,
+                           _deltaTime * glm::radians(90.0f), // Rotation angle (90° per second)
+                           glm::vec3(0.0f, 0.0f, 1.0f));     // Up axis
+    };
+
+    auto jumpingCB = [](const float _deltaTime, glm::mat4& _model)
+    {
+      auto currentTime = glfwGetTime();
+
+      _model = glm::translate(_model,
+                              _deltaTime * static_cast<float>(sin(currentTime)) * glm::vec3(0,0,1));
+    };
+
+    renderer.setObjUpdateCB(dragonIdx1, rotateCB);
+    renderer.setObjUpdateCB(dragonIdx2, jumpingCB);
+
+    renderer.renderLoop();
     renderer.cleanUp();
   }
   catch(const std::exception& e)

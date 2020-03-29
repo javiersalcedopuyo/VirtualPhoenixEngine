@@ -20,6 +20,18 @@ public:
     return instance;
   }
 
+  inline void copyToBufferMemory(void* _src,
+                                 VkDeviceMemory& _dstMemory,
+                                 const VkDeviceSize _size,
+                                 const VkDeviceSize _offset=0,
+                                 const VkMemoryMapFlags _flags=0)
+  {
+    void* data;
+    vkMapMemory(*m_pLogicalDevice, _dstMemory, _offset, _size, _flags, &data);
+    memcpy(data, _src, _size);
+    vkUnmapMemory(*m_pLogicalDevice, _dstMemory);
+  }
+
   VkDevice*         m_pLogicalDevice;
   VkPhysicalDevice* m_pPhysicalDevice;
 

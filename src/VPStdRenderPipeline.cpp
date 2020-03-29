@@ -76,24 +76,24 @@ void VPStdRenderPipeline::createOrUpdateDescriptorSet(VPStdRenderableObject* _ob
   allocInfo.descriptorSetCount          = 1;
   allocInfo.pSetLayouts                 = &m_descriptorSetLayout;
 
-  if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &_obj->descriptorSet) != VK_SUCCESS)
+  if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &_obj->m_descriptorSet) != VK_SUCCESS)
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createDescriptorSets - Failed!");
 
   // Populate descriptor set
   VkDescriptorBufferInfo mvpInfo  = {};
-  mvpInfo.buffer                  = _obj->uniformBuffer;
+  mvpInfo.buffer                  = _obj->m_uniformBuffer;
   mvpInfo.offset                  = 0;
   mvpInfo.range                   = sizeof(ModelViewProjUBO);
 
   VkDescriptorImageInfo imageInfo = {};
   imageInfo.imageLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  imageInfo.imageView             = _obj->pMaterial->pTexture->getImageView();
-  imageInfo.sampler               = _obj->pMaterial->pTexture->getSampler();
+  imageInfo.imageView             = _obj->m_pMaterial->pTexture->getImageView();
+  imageInfo.sampler               = _obj->m_pMaterial->pTexture->getSampler();
 
   std::array<VkWriteDescriptorSet, BINDING_COUNT> descriptorWrites = {};
   // MVP matrices
   descriptorWrites[0].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[0].dstSet               = _obj->descriptorSet;
+  descriptorWrites[0].dstSet               = _obj->m_descriptorSet;
   descriptorWrites[0].dstBinding           = 0;
   descriptorWrites[0].dstArrayElement      = 0; // Descriptors can be arrays. First index
   descriptorWrites[0].descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -103,7 +103,7 @@ void VPStdRenderPipeline::createOrUpdateDescriptorSet(VPStdRenderableObject* _ob
   descriptorWrites[0].pTexelBufferView     = nullptr;
   // Texture
   descriptorWrites[1].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[1].dstSet               = _obj->descriptorSet;
+  descriptorWrites[1].dstSet               = _obj->m_descriptorSet;
   descriptorWrites[1].dstBinding           = 1;
   descriptorWrites[1].dstArrayElement      = 0; // Descriptors can be arrays. First index
   descriptorWrites[1].descriptorType       = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;

@@ -87,10 +87,7 @@ void VPMemoryBufferManager::fillBuffer(VkBuffer*             _dst,
                &stagingBuffer,
                &stagingMemory);
 
-  void* data;
-  vkMapMemory(*m_pLogicalDevice, stagingMemory, 0, _size, 0, &data);
-  memcpy(data, _content, _size);
-  vkUnmapMemory(*m_pLogicalDevice, stagingMemory);
+  copyToBufferMemory(_content, stagingMemory, _size);
 
   createBuffer(_size, _usage, _properties, _dst, &_memory);
 

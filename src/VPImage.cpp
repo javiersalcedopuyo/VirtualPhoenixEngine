@@ -187,11 +187,7 @@ void VPImage::loadFromFile(const char* _path)
                              &stagingBuffer,
                              &stagingMemory);
 
-  // Copy the image to the memory. TODO: Abstract into its own method
-  void* data;
-  vkMapMemory(logicalDevice, stagingMemory, 0, imageSize, 0, &data);
-  memcpy(data, pixels, imageSize);
-  vkUnmapMemory(logicalDevice, stagingMemory);
+  VPMemoryBufferManager::getInstance().copyToBufferMemory(pixels, stagingMemory, imageSize);
 
   stbi_image_free(pixels);
 

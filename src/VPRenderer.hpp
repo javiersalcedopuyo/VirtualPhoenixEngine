@@ -16,8 +16,6 @@
 
 #include <GLFW/glfw3.h>
 
-#include <tiny_obj_loader.h>
-
 // EXIT_SUCCESS and EXIT_FAILURES
 #include <cstdlib>
 // Loading files
@@ -93,10 +91,10 @@ public:
   VPUserInputController* m_pUserInputController;
 
   void init();
-  void mainLoop();
+  void renderLoop();
   void cleanUp();
 
-  uint32_t createObject(const char* _modelPath, const glm::vec3& _pos);
+  uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat);
   inline uint32_t createMaterial(const char* _vertShaderPath,
                                  const char* _fragShaderPath,
                                  const char* _texturePath)
@@ -133,14 +131,24 @@ public:
 
   inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
   {
+    if (_objIdx >= m_renderableObjects.size()) return;
     m_renderableObjects.at(_objIdx).setMaterial( m_pMaterials.at(_matIdx) );
     recreateSwapChain(); // FIXME: This is overkill
+  }
+
+  inline void setObjUpdateCB(const uint32_t _objIdx,
+                             std::function<void(const float, glm::mat4&)> _callback)
+  {
+    if (_objIdx >= m_renderableObjects.size()) return;
+    m_renderableObjects.at(_objIdx).m_updateCallback = _callback;
   }
 
 private:
   GLFWwindow*            m_pWindow;
   VkSurfaceKHR           m_surface;
   VPCamera*              m_pCamera; // TODO: Multi-camera
+
+  float m_deltaTime;
 
   VkInstance           m_vkInstance;
   VkPhysicalDevice     m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
@@ -224,6 +232,7 @@ private:
   VkShaderModule createShaderModule(const std::vector<char>& _code);
 
   void updateUniformBuffer(const size_t _idx);
+  void updateObjects();
 
   void     createDepthResources();
   VkFormat findDepthFormat();
@@ -240,8 +249,6 @@ private:
     return _format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
            _format == VK_FORMAT_D24_UNORM_S8_UINT;
   }
-
-  std::pair<std::vector<Vertex>, std::vector<uint32_t>> loadModel(const char* _path);
 
   VkSampleCountFlagBits getMaxUsableSampleCount();
 

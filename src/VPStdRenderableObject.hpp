@@ -2,6 +2,7 @@
 #define VP_RENDERABLE_OBJECT_HPP
 
 #include "VPMaterial.hpp"
+#include "ObjLoader.hpp"
 
 struct ModelViewProjUBO
 {
@@ -10,92 +11,62 @@ struct ModelViewProjUBO
   alignas(16) glm::mat4 proj;
 };
 
-struct Vertex
+class VPStdRenderableObject
 {
-  bool operator==(const Vertex& other) const
+friend class VPRenderer;
+
+private:
+  VPStdRenderableObject() = delete;
+  VPStdRenderableObject(const glm::mat4&  _model,
+                        const char* _modelPath,
+                        VPMaterial* _pMaterial) :
+    m_model(_model),
+    m_pMaterial(_pMaterial),
+    m_descriptorSet(VK_NULL_HANDLE),
+    m_updateCallback( [](const float, glm::mat4&){} )
   {
-    return pos      == other.pos    &&
-           color    == other.color  &&
-           normal   == other.normal &&
-           texCoord == other.texCoord;
-  }
+    auto& bufferManager = VPMemoryBufferManager::getInstance();
 
-  glm::vec2 texCoord;
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec3 normal;
+    std::tie(m_vertices, m_indices) = ObjLoader::loadModel(_modelPath);
 
-  static inline VkVertexInputBindingDescription getBindingDescription()
-  {
-    VkVertexInputBindingDescription bd = {};
-    bd.binding   = 0;
-    bd.stride    = sizeof(Vertex);
-    bd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    bufferManager.fillBuffer(&m_vertexBuffer,
+                             m_vertices.data(),
+                             m_vertexBufferMemory,
+                             sizeof(m_vertices[0]) * m_vertices.size(),
+                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    return bd;
-  }
+    bufferManager.fillBuffer(&m_indexBuffer,
+                             m_indices.data(),
+                             m_indexBufferMemory,
+                             sizeof(m_indices[0]) * m_indices.size(),
+                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  static inline std::array<VkVertexInputAttributeDescription,4> getAttributeDescriptions()
-  {
-    std::array<VkVertexInputAttributeDescription,4> descriptions = {};
-    descriptions[0].binding  = 0;
-    descriptions[0].location = 0;
-    descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[0].offset   = offsetof(Vertex, pos);
-
-    descriptions[1].binding  = 0;
-    descriptions[1].location = 1;
-    descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[1].offset   = offsetof(Vertex, color);
-
-    descriptions[2].binding  = 0;
-    descriptions[2].location = 2;
-    descriptions[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[2].offset   = offsetof(Vertex, normal);
-
-    descriptions[3].binding  = 0;
-    descriptions[3].location = 3;
-    descriptions[3].format   = VK_FORMAT_R32G32_SFLOAT;
-    descriptions[3].offset   = offsetof(Vertex, texCoord);
-
-    return descriptions;
-  }
-};
-
-// Needed to use Vertex as keys in an unordered map
-namespace std {
-  template <> struct hash<Vertex>
-  {
-    size_t operator()(Vertex const& vertex) const
-    {
-      return ((((hash<glm::vec3>()(vertex.pos) ^
-                (hash<glm::vec3>()(vertex.color) << 1)) >>1) ^
-                (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
-                (hash<glm::vec2>()(vertex.texCoord) << 1);
-    }
+    this->createUniformBuffers();
   };
-}
 
-struct VPStdRenderableObject
-{
-  VPStdRenderableObject() : pMaterial(nullptr), descriptorSet(VK_NULL_HANDLE) {};
-
+public:
   // Raw data
-  glm::mat4             model;
-  std::vector<uint32_t> indices;
-  std::vector<Vertex>   vertices;
+  glm::mat4             m_model;
+  std::vector<uint32_t> m_indices;
+  std::vector<Vertex>   m_vertices;
 
   // Buffers and memory
-  VkBuffer       vertexBuffer;
-  VkBuffer       indexBuffer;
-  VkBuffer       uniformBuffer;
-  VkDeviceMemory vertexBufferMemory;
-  VkDeviceMemory indexBufferMemory;
-  VkDeviceMemory uniformBufferMemory;
+  VkBuffer       m_vertexBuffer;
+  VkBuffer       m_indexBuffer;
+  VkBuffer       m_uniformBuffer;
+  VkDeviceMemory m_vertexBufferMemory;
+  VkDeviceMemory m_indexBufferMemory;
+  VkDeviceMemory m_uniformBufferMemory;
 
   // Misc
-  VPMaterial*     pMaterial; // DOUBT: Should I use shared_ptr instead?
-  VkDescriptorSet descriptorSet;
+  VPMaterial*     m_pMaterial; // DOUBT: Should I use shared_ptr instead?
+  VkDescriptorSet m_descriptorSet;
+
+  std::function<void(const float, glm::mat4&)> m_updateCallback;
+
+  inline void update(const float _deltaTime) { m_updateCallback(_deltaTime, m_model); }
 
   inline void createUniformBuffers()
   {
@@ -103,30 +74,30 @@ struct VPStdRenderableObject
                                                       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                                      &uniformBuffer,
-                                                      &uniformBufferMemory);
+                                                      &m_uniformBuffer,
+                                                      &m_uniformBufferMemory);
   }
 
-  inline void setMaterial(VPMaterial* _newMat) { pMaterial = _newMat; }
+  inline void setMaterial(VPMaterial* _newMat) { m_pMaterial = _newMat; }
 
   inline void cleanUniformBuffers()
   {
     const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 
-    vkDestroyBuffer(logicalDevice, uniformBuffer, nullptr);
-    vkFreeMemory(logicalDevice, uniformBufferMemory, nullptr);
+    vkDestroyBuffer(logicalDevice, m_uniformBuffer, nullptr);
+    vkFreeMemory(logicalDevice, m_uniformBufferMemory, nullptr);
   }
 
   inline void cleanUp()
   {
     const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 
-    vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
-    vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
-    vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
-    vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
+    vkDestroyBuffer(logicalDevice, m_indexBuffer, nullptr);
+    vkDestroyBuffer(logicalDevice, m_vertexBuffer, nullptr);
+    vkFreeMemory(logicalDevice, m_vertexBufferMemory, nullptr);
+    vkFreeMemory(logicalDevice, m_indexBufferMemory, nullptr);
 
-    pMaterial = nullptr; // Not the owner
+    m_pMaterial = nullptr; // Not the owner
   }
 };
 

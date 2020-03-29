@@ -95,34 +95,9 @@ void VPRenderer::initVulkan()
   createSyncObjects();
 }
 
-uint32_t VPRenderer::createObject(const char* _modelPath, const glm::vec3& _pos)
+uint32_t VPRenderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
 {
-  VPMemoryBufferManager& bufferManager = VPMemoryBufferManager::getInstance();
-  VPStdRenderableObject newObject;
-
-  // Start with the default material
-  newObject.pMaterial = m_pMaterials.at(0);
-
-  newObject.model = glm::translate(glm::mat4(1), _pos);
-  std::tie(newObject.vertices, newObject.indices) = loadModel(_modelPath);
-
-  bufferManager.fillBuffer(&newObject.vertexBuffer,
-                           newObject.vertices.data(),
-                           newObject.vertexBufferMemory,
-                           sizeof(newObject.vertices[0]) * newObject.vertices.size(),
-                           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  bufferManager.fillBuffer(&newObject.indexBuffer,
-                           newObject.indices.data(),
-                           newObject.indexBufferMemory,
-                           sizeof(newObject.indices[0]) * newObject.indices.size(),
-                           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  newObject.createUniformBuffers();
-
-  m_renderableObjects.push_back(newObject);
+  m_renderableObjects.push_back(VPStdRenderableObject(_modelMat, _modelPath, m_pMaterials.at(0)));
 
   recreateSwapChain(); // FIXME: This is overkill
 
@@ -343,8 +318,7 @@ void VPRenderer::drawFrame()
   VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-  for (size_t i=0; i<m_renderableObjects.size(); ++i)
-    updateUniformBuffer(i);
+  updateObjects();
 
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -383,28 +357,29 @@ void VPRenderer::drawFrame()
   m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void VPRenderer::mainLoop()
+void VPRenderer::renderLoop()
 {
-  double currentTime = 0.0;
-  double lastTime    = glfwGetTime();
-  float  deltaTime   = 0.0f;
+  static auto  startTime   = std::chrono::high_resolution_clock::now();
+         auto  currentTime = std::chrono::high_resolution_clock::now();
+
   float  moveSpeed   = 10.0f;
   float  rotateSpeed = 10.0f;
 
   VPUserInputContext userInputCtx;
   userInputCtx.window            = m_pWindow;
   userInputCtx.camera            = m_pCamera;
-  userInputCtx.deltaTime         = deltaTime;
+  userInputCtx.deltaTime         = m_deltaTime;
   userInputCtx.cameraMoveSpeed   = moveSpeed;
   userInputCtx.cameraRotateSpeed = rotateSpeed;
 
   while (!glfwWindowShouldClose(m_pWindow))
   {
-    currentTime = glfwGetTime();
-    deltaTime   = static_cast<float>(currentTime - lastTime);
-    lastTime    = currentTime;
+    currentTime = std::chrono::high_resolution_clock::now();
+    m_deltaTime = std::chrono::duration<float, std::chrono::seconds::period>
+                  (currentTime - startTime).count();
+    startTime   = currentTime;
 
-    userInputCtx.deltaTime = deltaTime;
+    userInputCtx.deltaTime = m_deltaTime;
     *m_pUserInputController->m_pScrollY = 0;
 
     glfwPollEvents();
@@ -869,15 +844,15 @@ void VPRenderer::setupRenderCommands()
       vkCmdBindPipeline(commandBufferManager.getBufferAt(i),
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
                         m_pGraphicsPipeline->getOrCreatePipeline(m_swapChainExtent,
-                                                                 *object.pMaterial));
+                                                                 *object.m_pMaterial));
 
       // Bind the vertex buffers
-      VkBuffer     vertexBuffers[] = {object.vertexBuffer};
+      VkBuffer     vertexBuffers[] = {object.m_vertexBuffer};
       VkDeviceSize offsets[]       = {0};
       vkCmdBindVertexBuffers(commandBufferManager.getBufferAt(i), 0, 1, vertexBuffers, offsets);
 
       vkCmdBindIndexBuffer(commandBufferManager.getBufferAt(i),
-                           object.indexBuffer,
+                           object.m_indexBuffer,
                            0,
                            VK_INDEX_TYPE_UINT32);
 
@@ -886,12 +861,12 @@ void VPRenderer::setupRenderCommands()
                               m_pGraphicsPipeline->getPipelineLayout(),
                               0,
                               1,
-                              &object.descriptorSet,
+                              &object.m_descriptorSet,
                               0,
                               nullptr);
 
       vkCmdDrawIndexed(commandBufferManager.getBufferAt(i),
-                       object.indices.size(),
+                       object.m_indices.size(),
                        1, 0, 0, 0);
     }
 
@@ -899,35 +874,27 @@ void VPRenderer::setupRenderCommands()
   }
 }
 
-void VPRenderer::updateUniformBuffer(const size_t _idx)
+void VPRenderer::updateObjects()
 {
-  // TODO: Move outside the renderer ///////////////////////////////////////////////////////////////
-  static auto  startTime   = std::chrono::high_resolution_clock::now();
-         auto  currentTime = std::chrono::high_resolution_clock::now();
-         float time        = std::chrono::duration<float, std::chrono::seconds::period>
-                             (currentTime - startTime).count();
-
   if (m_pCamera == nullptr) m_pCamera = new VPCamera();
 
-  ModelViewProjUBO mvpUBO = {};
-
-  mvpUBO.model = glm::rotate(m_renderableObjects.at(_idx).model,
-                             time * glm::radians(90.0f),      // Rotation angle (90° per second)
-                             glm::vec3(0.0f, 0.0f, 1.0f));    // Up axis
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-
   m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
-                           static_cast<float>(m_swapChainExtent.height) );
+                             static_cast<float>(m_swapChainExtent.height) );
 
-  //mvpUBO.model = m_renderableObjects.at(_idx).model;
-  mvpUBO.view  = m_pCamera->getViewMat();
-  mvpUBO.proj  = m_pCamera->getProjMat();
+  ModelViewProjUBO mvpUBO = {};
+  mvpUBO.view             = m_pCamera->getViewMat();
+  mvpUBO.proj             = m_pCamera->getProjMat();
 
-  // Copy to the buffer
-  void* data;
-  vkMapMemory(m_logicalDevice, m_renderableObjects.at(_idx).uniformBufferMemory, 0, sizeof(mvpUBO), 0, &data);
-  memcpy(data, &mvpUBO, sizeof(mvpUBO));
-  vkUnmapMemory(m_logicalDevice, m_renderableObjects.at(_idx).uniformBufferMemory);
+  for (auto& object : m_renderableObjects)
+  {
+    object.update(m_deltaTime);
+
+    mvpUBO.model = object.m_model;
+
+    VPMemoryBufferManager::getInstance().copyToBufferMemory(&mvpUBO,
+                                                            object.m_uniformBufferMemory,
+                                                            sizeof(mvpUBO));
+  }
 }
 
 void VPRenderer::createDepthResources()
@@ -995,70 +962,6 @@ void VPRenderer::createColorResources()
                                               1);
 }
 
-std::pair< std::vector<Vertex>, std::vector<uint32_t> > VPRenderer::loadModel(const char* _path)
-{
-  std::vector<Vertex>              vertices;
-  std::vector<uint32_t>            indices;
-
-  tinyobj::attrib_t                attributes;
-  std::vector<tinyobj::shape_t>    shapes;
-  std::vector<tinyobj::material_t> materials;
-  std::string                      warning;
-  std::string                      error;
-
-  if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &warning, &error, _path))
-    throw std::runtime_error(warning + error);
-
-  std::unordered_map<Vertex, uint32_t> uniqueVertices;
-  for (const auto& shape : shapes)
-  {
-    for (const auto& index : shape.mesh.indices)
-    {
-      Vertex vertex = {};
-
-      if (index.vertex_index >=0)
-      {
-        vertex.pos =
-        {
-          attributes.vertices[3 * index.vertex_index + 0],
-          attributes.vertices[3 * index.vertex_index + 1],
-          attributes.vertices[3 * index.vertex_index + 2]
-        };
-      }
-
-      if (index.normal_index >= 0)
-      {
-        vertex.normal =
-        {
-          attributes.normals[3 * index.normal_index + 0],
-          attributes.normals[3 * index.normal_index + 1],
-          attributes.normals[3 * index.normal_index + 2]
-        };
-      }
-
-      if (index.texcoord_index >= 0)
-      {
-        vertex.texCoord =
-        {
-          attributes.texcoords[2 * index.texcoord_index + 0],
-          1.0f - attributes.texcoords[2 * index.texcoord_index + 1]
-        };
-      }
-
-      vertex.color = {0.0f, 0.0f, 0.0f};
-
-      if (uniqueVertices.count(vertex) == 0)
-      {
-        uniqueVertices[vertex] = vertices.size();
-        vertices.push_back(vertex);
-      }
-
-      indices.push_back(uniqueVertices[vertex]);
-    }
-  }
-
-  return std::make_pair(vertices, indices);
-}
 
 VkFormat VPRenderer::findSupportedFormat(const std::vector<VkFormat>& _candidates,
                                             const VkImageTiling          _tiling,

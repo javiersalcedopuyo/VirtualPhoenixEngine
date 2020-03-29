@@ -1,6 +1,6 @@
-#include "VPStdRenderPipeline.hpp"
+#include "VPStdRenderPipelineManager.hpp"
 
-VkShaderModule VPStdRenderPipeline::createShaderModule(const std::vector<char>& _code)
+VkShaderModule VPStdRenderPipelineManager::createShaderModule(const std::vector<char>& _code)
 {
   const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -17,16 +17,16 @@ VkShaderModule VPStdRenderPipeline::createShaderModule(const std::vector<char>& 
   return result;
 }
 
-void VPStdRenderPipeline::createLayouts()
+void VPStdRenderPipelineManager::createLayouts()
 {
   const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 
   VkDescriptorSetLayoutBinding uboLayoutBinding = {};
-  uboLayoutBinding.binding            = 0;
-  uboLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  uboLayoutBinding.descriptorCount    = 1;
-  uboLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
-  uboLayoutBinding.pImmutableSamplers = nullptr; // Only relevant for image sampling
+  uboLayoutBinding.binding                      = 0;
+  uboLayoutBinding.descriptorType               = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uboLayoutBinding.descriptorCount              = 1;
+  uboLayoutBinding.stageFlags                   = VK_SHADER_STAGE_VERTEX_BIT;
+  uboLayoutBinding.pImmutableSamplers           = nullptr; // Only relevant for image sampling
 
   VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
   samplerLayoutBinding.binding            = 1;
@@ -42,9 +42,9 @@ void VPStdRenderPipeline::createLayouts()
   };
 
   VkDescriptorSetLayoutCreateInfo dsLayoutInfo = {};
-  dsLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  dsLayoutInfo.bindingCount = bindings.size();
-  dsLayoutInfo.pBindings    = bindings.data();
+  dsLayoutInfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  dsLayoutInfo.bindingCount                    = bindings.size();
+  dsLayoutInfo.pBindings                       = bindings.data();
 
   if (vkCreateDescriptorSetLayout(logicalDevice, &dsLayoutInfo, nullptr, &m_descriptorSetLayout) !=
       VK_SUCCESS)
@@ -61,7 +61,7 @@ void VPStdRenderPipeline::createLayouts()
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createLayouts - Failed to create the pipeline layout!");
 }
 
-void VPStdRenderPipeline::createOrUpdateDescriptorSet(VPStdRenderableObject* _obj)
+void VPStdRenderPipelineManager::createOrUpdateDescriptorSet(VPStdRenderableObject* _obj)
 {
   if (_obj == nullptr) return;
 
@@ -80,10 +80,10 @@ void VPStdRenderPipeline::createOrUpdateDescriptorSet(VPStdRenderableObject* _ob
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createDescriptorSets - Failed!");
 
   // Populate descriptor set
-  VkDescriptorBufferInfo mvpInfo  = {};
-  mvpInfo.buffer                  = _obj->m_uniformBuffer;
-  mvpInfo.offset                  = 0;
-  mvpInfo.range                   = sizeof(ModelViewProjUBO);
+  VkDescriptorBufferInfo uboInfo  = {};
+  uboInfo.buffer                  = _obj->m_uniformBuffer;
+  uboInfo.offset                  = 0;
+  uboInfo.range                   = sizeof(ModelViewProjUBO);
 
   VkDescriptorImageInfo imageInfo = {};
   imageInfo.imageLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -98,7 +98,7 @@ void VPStdRenderPipeline::createOrUpdateDescriptorSet(VPStdRenderableObject* _ob
   descriptorWrites[0].dstArrayElement      = 0; // Descriptors can be arrays. First index
   descriptorWrites[0].descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   descriptorWrites[0].descriptorCount      = 1;
-  descriptorWrites[0].pBufferInfo          = &mvpInfo;
+  descriptorWrites[0].pBufferInfo          = &uboInfo;
   descriptorWrites[0].pImageInfo           = nullptr;
   descriptorWrites[0].pTexelBufferView     = nullptr;
   // Texture
@@ -119,7 +119,7 @@ void VPStdRenderPipeline::createOrUpdateDescriptorSet(VPStdRenderableObject* _ob
                          nullptr);
 }
 
-void VPStdRenderPipeline::updateViewportState(const VkExtent2D& _extent)
+void VPStdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
 {
   VkViewport* viewport = new VkViewport
   {
@@ -147,7 +147,7 @@ void VPStdRenderPipeline::updateViewportState(const VkExtent2D& _extent)
   m_viewportState.pScissors     = scissor;
 }
 
-void VPStdRenderPipeline::createPipeline(const VkExtent2D& _extent, const VPMaterial& _material)
+void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const VPMaterial& _material)
 {
   const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 

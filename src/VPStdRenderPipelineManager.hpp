@@ -22,13 +22,12 @@
 
 constexpr uint8_t BINDING_COUNT = 2;
 
-// TODO: Turn into a manager
-class VPStdRenderPipeline
+class VPStdRenderPipelineManager
 {
 public:
 
-  VPStdRenderPipeline() = delete;
-  VPStdRenderPipeline(VkRenderPass* _renderPass) :
+  VPStdRenderPipelineManager() = delete;
+  VPStdRenderPipelineManager(VkRenderPass* _renderPass) :
     m_renderPass(_renderPass),
     m_pipelineLayout(VK_NULL_HANDLE),
     m_descriptorPool(VK_NULL_HANDLE)
@@ -42,7 +41,7 @@ public:
     createLayouts();
   };
 
-  ~VPStdRenderPipeline()
+  ~VPStdRenderPipelineManager()
   {
     const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
     vkDestroyDescriptorSetLayout(logicalDevice, m_descriptorSetLayout, nullptr);

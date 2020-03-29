@@ -2,7 +2,6 @@
 #define VP_RENDERABLE_OBJECT_HPP
 
 #include "VPMaterial.hpp"
-#include "ObjLoader.hpp"
 
 struct ModelViewProjUBO
 {
@@ -27,7 +26,7 @@ private:
   {
     auto& bufferManager = VPMemoryBufferManager::getInstance();
 
-    std::tie(m_vertices, m_indices) = ObjLoader::loadModel(_modelPath);
+    std::tie(m_vertices, m_indices) = VPResourcesLoader::loadModel(_modelPath);
 
     bufferManager.fillBuffer(&m_vertexBuffer,
                              m_vertices.data(),

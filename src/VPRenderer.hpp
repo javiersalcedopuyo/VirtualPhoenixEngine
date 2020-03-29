@@ -39,7 +39,7 @@
 //#include "Managers/DevicesManager.hpp"
 #include "VPCamera.hpp"
 #include "VPUserInputController.hpp"
-#include "VPStdRenderPipeline.hpp"
+#include "VPStdRenderPipelineManager.hpp"
 
 // TODO: Make it toggleable
 constexpr bool MSAA_ENABLED = false;
@@ -95,6 +95,7 @@ public:
   void cleanUp();
 
   uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat);
+
   inline uint32_t createMaterial(const char* _vertShaderPath,
                                  const char* _fragShaderPath,
                                  const char* _texturePath)
@@ -106,6 +107,7 @@ public:
   inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
   {
     m_pMaterials.at(_matIdx)->loadTexture(_path);
+    this->recreateSwapChain(); // FIXME: Overkill?
   }
 
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }
@@ -165,7 +167,7 @@ private:
   std::vector<VkImageView> m_swapChainImageViews;
 
   VkRenderPass                 m_renderPass;
-  VPStdRenderPipeline*         m_pGraphicsPipeline;
+  VPStdRenderPipelineManager*         m_pGraphicsPipelineManager;
   std::vector<VkFramebuffer>   m_swapChainFrameBuffers;
 
   size_t m_currentFrame;
@@ -222,7 +224,7 @@ private:
 
   // Pipeline
   void createRenderPass();
-  void createGraphicsPipeline();
+  void createGraphicsPipelineManager();
   void createFrameBuffers();
 
   // Command Buffers
@@ -231,7 +233,6 @@ private:
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
 
-  void updateUniformBuffer(const size_t _idx);
   void updateObjects();
 
   void     createDepthResources();

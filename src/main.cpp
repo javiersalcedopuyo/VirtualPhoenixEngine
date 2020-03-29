@@ -55,6 +55,7 @@ int main()
 
     renderer.setObjMaterial(dragonIdx1, newMaterialIdx);
     renderer.setObjMaterial(dragonIdx2, DEFAULT_MATERIAL_IDX);
+    //renderer.loadTextureToMaterial("../Textures/ColorTestTex.png", DEFAULT_MATERIAL_IDX);
 
     auto rotateCB = [](const float _deltaTime, glm::mat4& _model)
     {

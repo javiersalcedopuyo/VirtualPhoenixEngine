@@ -35,7 +35,7 @@ VPRenderer::VPRenderer() :
   m_pWindow(nullptr),
   m_pCamera(nullptr),
   m_frameBufferResized(false),
-  m_pGraphicsPipeline(nullptr),
+  m_pGraphicsPipelineManager(nullptr),
   m_currentFrame(0),
   m_msaaSampleCount(VK_SAMPLE_COUNT_1_BIT)
 {}
@@ -84,7 +84,7 @@ void VPRenderer::initVulkan()
   createRenderPass();
 
   // Create the default Material and Pipeline
-  createGraphicsPipeline();
+  createGraphicsPipelineManager();
   createMaterial(DEFAULT_VERT, DEFAULT_FRAG, DEFAULT_TEX);
 
   if (MSAA_ENABLED) createColorResources();
@@ -99,7 +99,7 @@ uint32_t VPRenderer::createObject(const char* _modelPath, const glm::mat4& _mode
 {
   m_renderableObjects.push_back(VPStdRenderableObject(_modelMat, _modelPath, m_pMaterials.at(0)));
 
-  recreateSwapChain(); // FIXME: This is overkill
+  this->recreateSwapChain(); // FIXME: This is overkill
 
   return m_renderableObjects.size() - 1;
 }
@@ -628,7 +628,7 @@ void VPRenderer::cleanUpSwapChain()
 
   VPCommandBufferManager::getInstance().freeBuffers();
 
-  m_pGraphicsPipeline->cleanUp();
+  m_pGraphicsPipelineManager->cleanUp();
   vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
 
   for (auto& imageView : m_swapChainImageViews)
@@ -662,12 +662,12 @@ void VPRenderer::recreateSwapChain()
   createDepthResources();
   createFrameBuffers();
 
-  m_pGraphicsPipeline->createDescriptorPool(m_renderableObjects.size());
+  m_pGraphicsPipelineManager->createDescriptorPool(m_renderableObjects.size());
 
   for (auto& object : m_renderableObjects)
   {
     object.createUniformBuffers();
-    m_pGraphicsPipeline->createOrUpdateDescriptorSet(&object);
+    m_pGraphicsPipelineManager->createOrUpdateDescriptorSet(&object);
   }
 
   setupRenderCommands();
@@ -765,15 +765,15 @@ void VPRenderer::createRenderPass()
     throw std::runtime_error("ERROR: Failed creating render pass!");
 }
 
-void VPRenderer::createGraphicsPipeline()
+void VPRenderer::createGraphicsPipelineManager()
 {
-  if (m_pGraphicsPipeline != nullptr)
+  if (m_pGraphicsPipelineManager != nullptr)
   {
-    m_pGraphicsPipeline->cleanUp();
-    delete m_pGraphicsPipeline;
-    m_pGraphicsPipeline = nullptr;
+    m_pGraphicsPipelineManager->cleanUp();
+    delete m_pGraphicsPipelineManager;
+    m_pGraphicsPipelineManager = nullptr;
   }
-  m_pGraphicsPipeline = new VPStdRenderPipeline(&m_renderPass);
+  m_pGraphicsPipelineManager = new VPStdRenderPipelineManager(&m_renderPass);
 }
 
 void VPRenderer::createFrameBuffers()
@@ -843,7 +843,7 @@ void VPRenderer::setupRenderCommands()
     {
       vkCmdBindPipeline(commandBufferManager.getBufferAt(i),
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        m_pGraphicsPipeline->getOrCreatePipeline(m_swapChainExtent,
+                        m_pGraphicsPipelineManager->getOrCreatePipeline(m_swapChainExtent,
                                                                  *object.m_pMaterial));
 
       // Bind the vertex buffers
@@ -858,7 +858,7 @@ void VPRenderer::setupRenderCommands()
 
       vkCmdBindDescriptorSets(commandBufferManager.getBufferAt(i),
                               VK_PIPELINE_BIND_POINT_GRAPHICS,
-                              m_pGraphicsPipeline->getPipelineLayout(),
+                              m_pGraphicsPipelineManager->getPipelineLayout(),
                               0,
                               1,
                               &object.m_descriptorSet,
@@ -1054,7 +1054,7 @@ void VPRenderer::cleanUp()
   for (auto& obj : m_renderableObjects) obj.cleanUp();
   for (auto& mat : m_pMaterials) delete mat;
 
-  delete m_pGraphicsPipeline;
+  delete m_pGraphicsPipelineManager;
 
   VPCommandBufferManager::getInstance().destroyCommandPool();
 

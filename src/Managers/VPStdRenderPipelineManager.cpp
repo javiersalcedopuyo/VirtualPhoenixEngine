@@ -4,7 +4,7 @@ VkShaderModule VPStdRenderPipelineManager::createShaderModule(const std::vector<
 {
   const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 
-  VkShaderModule result;
+  VkShaderModule result{};
 
   VkShaderModuleCreateInfo createInfo = {};
   createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

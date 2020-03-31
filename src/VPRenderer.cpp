@@ -7,29 +7,6 @@
 
 #include "VPRenderer.hpp"
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
-                                      const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-                                      const VkAllocationCallbacks* pAllocator,
-                                      VkDebugUtilsMessengerEXT* pDebugMessenger)
-{
-  VkResult result = VK_ERROR_EXTENSION_NOT_PRESENT;
-
-  auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
-
-  if (func) result = func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-
-  return result;
-}
-
-void DestroyDebugUtilsMessengerEXT(VkInstance instance,
-                                   VkDebugUtilsMessengerEXT debugMessenger,
-                                   const VkAllocationCallbacks* pAllocator)
-{
-  auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
-
-  if (func) func(instance, debugMessenger, pAllocator);
-}
-
 VPRenderer::VPRenderer() :
   m_pUserInputController(nullptr),
   m_pWindow(nullptr),
@@ -63,11 +40,20 @@ void VPRenderer::initWindow()
 
 void VPRenderer::initVulkan()
 {
-  createVkInstance();
-  initDebugMessenger();
+  m_vkInstance     = VPDeviceManagement::createVulkanInstance( getGLFWRequiredExtensions() );
+  m_debugMessenger = VPDeviceManagement::createDebugMessenger(m_vkInstance);
+
   createSurface();
-  getPhysicalDevice();
-  createLogicalDevice();
+
+  m_physicalDevice       = VPDeviceManagement::getPhysicalDevice(m_vkInstance, m_surface);
+  m_queueFamiliesIndices = VPDeviceManagement::findQueueFamilies(m_physicalDevice, m_surface);
+  m_logicalDevice        = VPDeviceManagement::createLogicalDevice(m_physicalDevice,
+                                                                   m_queueFamiliesIndices);
+
+  vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
+  vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.presentFamily.value(), 0, &m_presentQueue);
+
+  m_msaaSampleCount = getMaxUsableSampleCount();
 
   VPMemoryBufferManager&  bufferManager        = VPMemoryBufferManager::getInstance();
   VPCommandBufferManager& commandBufferManager = VPCommandBufferManager::getInstance();
@@ -110,183 +96,6 @@ void VPRenderer::createSurface()
     throw std::runtime_error("ERROR: Failed to create the surface window.");
 }
 
-void VPRenderer::getPhysicalDevice()
-{
-  m_physicalDevice = VK_NULL_HANDLE;
-
-  uint32_t deviceCount = 0;
-  vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, nullptr);
-
-  if (!deviceCount) throw std::runtime_error("ERROR: No compatible GPUs found!");
-
-  std::vector<VkPhysicalDevice> devices(deviceCount);
-  vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, devices.data());
-
-  for (const VkPhysicalDevice device : devices)
-  {
-    if (isDeviceSuitable(device))
-    { // For now, just take the 1st suitable device we find.
-      // TODO: Rate all available and select accordingly
-      m_physicalDevice  = device;
-      m_msaaSampleCount = getMaxUsableSampleCount();
-      break;
-    }
-  }
-
-  if (m_physicalDevice == VK_NULL_HANDLE) throw std::runtime_error("ERROR: No suitable GPUs found!");
-}
-
-void VPRenderer::createLogicalDevice()
-{
-  float queuePriority = 1.0; // TODO: Avoid magic numbers
-
-  // How many queues we want for a single family (for now just one with graphics capabilities)
-  std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-  std::set<uint32_t> uniqueQueueFamilies = {m_queueFamiliesIndices.graphicsFamily.value(),
-                                            m_queueFamiliesIndices.presentFamily.value()};
-
-  for(uint32_t queueFamily : uniqueQueueFamilies)
-  {
-    VkDeviceQueueCreateInfo queueCreateInfo = {};
-    queueCreateInfo.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = queueFamily;
-    queueCreateInfo.queueCount       = 1; // TODO: Avoid magic numbers
-    queueCreateInfo.pQueuePriorities = &queuePriority;
-
-    queueCreateInfos.emplace_back(queueCreateInfo);
-  }
-
-  VkPhysicalDeviceFeatures deviceFeatures = {};
-  deviceFeatures.samplerAnisotropy        = VK_TRUE;
-
-  VkDeviceCreateInfo createInfo      = {};
-  createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  createInfo.pQueueCreateInfos       = queueCreateInfos.data();
-  createInfo.queueCreateInfoCount    = queueCreateInfos.size();
-  createInfo.pEnabledFeatures        = &deviceFeatures;
-  createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
-  // NOTE: enabledExtensionCount and ppEnabledLayerNames are ignored in modern Vulkan implementations
-  createInfo.enabledExtensionCount   = DEVICE_EXTENSIONS.size();
-  if (ENABLE_VALIDATION_LAYERS)
-  {
-    createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-  }
-  else createInfo.enabledLayerCount = 0;
-
-  if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: Failed to create logical device!");
-
-  // DOUBT: Should I move this to another place?
-  vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
-  vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.presentFamily.value(), 0, &m_presentQueue);
-}
-
-bool VPRenderer::isDeviceSuitable(VkPhysicalDevice _device)
-{
-  m_queueFamiliesIndices = findQueueFamilies(_device);
-
-  VkPhysicalDeviceProperties properties;
-  VkPhysicalDeviceFeatures   features;
-
-  vkGetPhysicalDeviceProperties(_device, &properties);
-  vkGetPhysicalDeviceFeatures(_device, &features);
-
-  bool swapChainSupported = false;
-  if (checkExtensionSupport(_device))
-  {
-    SwapChainDetails_t details = querySwapChainSupport(_device);
-    swapChainSupported = !details.formats.empty() && !details.presentModes.empty();
-  }
-
-  return features.samplerAnisotropy &&
-         swapChainSupported &&
-         m_queueFamiliesIndices.isComplete();
-  // For some reason, my Nvidia GTX960m is not recognized as a discrete GPU :/
-  //  primusrun might be masking the GPU as an integrated
-  //     && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-}
-
-void VPRenderer::createVkInstance()
-{
-  if (ENABLE_VALIDATION_LAYERS && !checkValidationSupport())
-  {
-    throw std::runtime_error("ERROR: Validation Layers requested but not available!");
-    return;
-  }
-
-  // Optional but useful info for the driver to optimize.
-  VkApplicationInfo appInfo  = {};
-  appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.pApplicationName   = "Phoenix Renderer";
-  appInfo.applicationVersion = VK_MAKE_VERSION(0,0,1);
-  appInfo.pEngineName        = "Phoenix Renderer";
-  appInfo.apiVersion         = VK_API_VERSION_1_0;
-
-  VkInstanceCreateInfo createInfo = {};
-  createInfo.sType                = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  createInfo.pApplicationInfo     = &appInfo;
-  // Extensions
-  std::vector<const char*> extensions = getRequiredExtensions();
-  createInfo.enabledExtensionCount    = static_cast<uint32_t>(extensions.size());
-  createInfo.ppEnabledExtensionNames  = extensions.data();
-  // Validation Layers
-  if (ENABLE_VALIDATION_LAYERS)
-  {
-    createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-  }
-  else createInfo.enabledLayerCount = 0;
-
-  // Additional debug messenger to use during the instance creation and destruction
-  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
-  if (ENABLE_VALIDATION_LAYERS)
-  {
-    createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-
-    populateDebugMessenger(debugCreateInfo);
-    createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugCreateInfo);
-  }
-  else
-  {
-    createInfo.enabledLayerCount = 0;
-    createInfo.pNext = nullptr;
-  }
-
-  if (vkCreateInstance(&createInfo, nullptr, &m_vkInstance) != VK_SUCCESS)
-  {
-    throw std::runtime_error("ERROR: Failed to create Vulkan instance.");
-  }
-}
-
-QueueFamilyIndices_t VPRenderer::findQueueFamilies(VkPhysicalDevice _device)
-{
-  QueueFamilyIndices_t result;
-
-  uint32_t queueFamilyCount = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(_device, &queueFamilyCount, nullptr);
-
-  std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-  vkGetPhysicalDeviceQueueFamilyProperties(_device, &queueFamilyCount, queueFamilies.data());
-
-  VkBool32 presentSupport = false;
-  int i=0;
-  for (const auto& family : queueFamilies)
-  {
-    if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT) result.graphicsFamily = i;
-
-    vkGetPhysicalDeviceSurfaceSupportKHR(_device, i, m_surface, &presentSupport);
-    if (presentSupport) result.presentFamily = i;
-
-    if (result.isComplete()) break;
-
-    ++i;
-  }
-
-  return result;
-}
-
 void VPRenderer::drawFrame()
 {
   VPCommandBufferManager& commandBufferManager = VPCommandBufferManager::getInstance();
@@ -294,7 +103,7 @@ void VPRenderer::drawFrame()
 
   vkWaitForFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
-  uint32_t imageIdx;
+  uint32_t imageIdx = 0;
   VkResult result = vkAcquireNextImageKHR(m_logicalDevice, m_swapChain,
                                           UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame],
                                           VK_NULL_HANDLE, &imageIdx);
@@ -365,7 +174,7 @@ void VPRenderer::renderLoop()
   float  moveSpeed   = 10.0f;
   float  rotateSpeed = 10.0f;
 
-  VPUserInputContext userInputCtx;
+  VPUserInputContext userInputCtx{};
   userInputCtx.window            = m_pWindow;
   userInputCtx.camera            = m_pCamera;
   userInputCtx.deltaTime         = m_deltaTime;
@@ -394,58 +203,8 @@ void VPRenderer::renderLoop()
   vkDeviceWaitIdle(m_logicalDevice);
 }
 
-bool VPRenderer::checkValidationSupport()
-{
-  bool result = false;
-
-  // List all available layers
-  uint32_t layerCount = 0;
-  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-  std::vector<VkLayerProperties> availableLayers(layerCount);
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-  for (const char* layerName : VALIDATION_LAYERS)
-  {
-    for (const VkLayerProperties properties : availableLayers)
-    {
-      if (!strcmp(layerName, properties.layerName))
-      {
-        result = true;
-        break;
-      }
-    }
-    if (result) break;
-  }
-
-  return result;
-}
-
-bool VPRenderer::checkExtensionSupport(VkPhysicalDevice _device)
-{
-  uint32_t extensionCount = 0;
-  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, nullptr);
-
-  std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-  vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, availableExtensions.data());
-
-  extensionCount = 0;
-  for (const char* extensionName : DEVICE_EXTENSIONS)
-  {
-    for (const VkExtensionProperties extension : availableExtensions)
-    {
-      if (!strcmp(extensionName, extension.extensionName))
-      {
-        ++extensionCount;
-      }
-    }
-  }
-
-  return extensionCount == DEVICE_EXTENSIONS.size();
-}
-
 // Get the extensions required by GLFW and by the validation layers (if enabled)
-std::vector<const char*> VPRenderer::getRequiredExtensions()
+std::vector<const char*> VPRenderer::getGLFWRequiredExtensions()
 {
   uint32_t extensionsCount = 0;
   const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
@@ -457,58 +216,6 @@ std::vector<const char*> VPRenderer::getRequiredExtensions()
   return extensions;
 }
 
-void VPRenderer::populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo)
-{
-  _createInfo = {};
-
-  _createInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  _createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  _createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  _createInfo.pfnUserCallback = DebugCallback;
-  _createInfo.pUserData       = nullptr;
-}
-
-void VPRenderer::initDebugMessenger()
-{
-  if (!ENABLE_VALIDATION_LAYERS) return;
-
-  VkDebugUtilsMessengerCreateInfoEXT createInfo;
-  populateDebugMessenger(createInfo);
-
-  if (CreateDebugUtilsMessengerEXT(m_vkInstance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
-  {
-    throw std::runtime_error("ERROR: Failed to set up debug messenger!");
-  }
-}
-
-SwapChainDetails_t VPRenderer::querySwapChainSupport(VkPhysicalDevice _device)
-{
-  SwapChainDetails_t result;
-
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(_device, m_surface, &result.capabilities);
-
-  uint32_t formatCount = 0;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, nullptr);
-  if (formatCount > 0)
-  {
-    result.formats.resize(formatCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(_device, m_surface, &formatCount, result.formats.data());
-  }
-
-  uint32_t presentModeCount = 0;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, nullptr);
-  if (presentModeCount > 0)
-  {
-    result.presentModes.resize(presentModeCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(_device, m_surface, &presentModeCount, result.presentModes.data());
-  }
-
-  return result;
-}
 
 VkSurfaceFormatKHR VPRenderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
 {
@@ -556,7 +263,7 @@ VkExtent2D VPRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabil
 
 void VPRenderer::createSwapChain()
 {
-  SwapChainDetails_t swapChain = querySwapChainSupport(m_physicalDevice);
+  VPDeviceManagement::SwapChainDetails_t swapChain = VPDeviceManagement::querySwapChainSupport(m_physicalDevice, m_surface);
 
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChain.formats);
   VkPresentModeKHR   presentMode   = chooseSwapPresentMode(swapChain.presentModes);
@@ -782,7 +489,7 @@ void VPRenderer::createFrameBuffers()
 
   for (size_t i=0; i<m_swapChainImageViews.size(); ++i)
   {
-    std::vector<VkImageView> attachments;
+    std::vector<VkImageView> attachments = {};
 
     if (MSAA_ENABLED)
     {
@@ -829,7 +536,7 @@ void VPRenderer::setupRenderCommands()
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass        = m_renderPass;
-    renderPassInfo.framebuffer       = m_swapChainFrameBuffers[i];
+    renderPassInfo.framebuffer       = m_swapChainFrameBuffers.at(i);
     renderPassInfo.renderArea.offset = {0,0};
     renderPassInfo.renderArea.extent = m_swapChainExtent;
     renderPassInfo.clearValueCount   = clearValues.size();
@@ -844,7 +551,7 @@ void VPRenderer::setupRenderCommands()
       vkCmdBindPipeline(commandBufferManager.getBufferAt(i),
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
                         m_pGraphicsPipelineManager->getOrCreatePipeline(m_swapChainExtent,
-                                                                 *object.m_pMaterial));
+                                                                        *object.m_pMaterial));
 
       // Bind the vertex buffers
       VkBuffer     vertexBuffers[] = {object.m_vertexBuffer};
@@ -969,7 +676,7 @@ VkFormat VPRenderer::findSupportedFormat(const std::vector<VkFormat>& _candidate
 {
   for (const VkFormat& candidate : _candidates)
   {
-    VkFormatProperties properties;
+    VkFormatProperties properties{};
     vkGetPhysicalDeviceFormatProperties(m_physicalDevice, candidate, &properties);
 
     if ((_tiling == VK_IMAGE_TILING_LINEAR &&
@@ -989,7 +696,7 @@ VkSampleCountFlagBits VPRenderer::getMaxUsableSampleCount()
 {
   if (!MSAA_ENABLED) return VK_SAMPLE_COUNT_1_BIT;
 
-  VkPhysicalDeviceProperties properties;
+  VkPhysicalDeviceProperties properties{};
   vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
 
   VkSampleCountFlags countFlags = std::min(properties.limits.framebufferColorSampleCounts,
@@ -1040,7 +747,7 @@ void VPRenderer::cleanUp()
   if (m_pUserInputController != nullptr) delete m_pUserInputController;
 
   if (ENABLE_VALIDATION_LAYERS)
-    DestroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
+    VPDeviceManagement::destroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
 
   for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {

@@ -20,7 +20,7 @@ void VPCommandBufferManager::allocateNCommandBuffers(const uint32_t _num)
   allocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   allocInfo.commandPool                 = m_commandPool;
   allocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submited to queue, but not called from other buffers
-  allocInfo.commandBufferCount          = static_cast<uint32_t>(m_commandBuffers.size());
+  allocInfo.commandBufferCount          = m_commandBuffers.size();
 
   if (vkAllocateCommandBuffers(*m_pLogicalDevice, &allocInfo, m_commandBuffers.data()) != VK_SUCCESS)
     throw std::runtime_error("ERROR: VPCommandBufferManager::allocateNCommandBuffers - Failed!");
@@ -29,20 +29,24 @@ void VPCommandBufferManager::allocateNCommandBuffers(const uint32_t _num)
 void VPCommandBufferManager::beginRecordingCommand(const uint32_t _idx,
                                                    const VkCommandBufferUsageFlags _flags)
 {
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags                    = _flags;
-    beginInfo.pInheritanceInfo         = nullptr; // Only relevant for secondary command buffers
+  if (_idx >= m_commandBuffers.size()) return;
 
-    if (vkBeginCommandBuffer(m_commandBuffers[_idx], &beginInfo) != VK_SUCCESS)
-      throw std::runtime_error("ERROR: VPCommandBufferManager::beginRecordingCommand - Failed!");
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags                    = _flags;
+  beginInfo.pInheritanceInfo         = nullptr; // Only relevant for secondary command buffers
+
+  if (vkBeginCommandBuffer(m_commandBuffers.at(_idx), &beginInfo) != VK_SUCCESS)
+    throw std::runtime_error("ERROR: VPCommandBufferManager::beginRecordingCommand - Failed!");
 }
 
 void VPCommandBufferManager::endRecordingCommand(const uint32_t _idx)
 {
-  vkCmdEndRenderPass(m_commandBuffers[_idx]);
+  if (_idx >= m_commandBuffers.size()) return;
 
-  if (vkEndCommandBuffer(m_commandBuffers[_idx]) != VK_SUCCESS)
+  vkCmdEndRenderPass(m_commandBuffers.at(_idx));
+
+  if (vkEndCommandBuffer(m_commandBuffers.at(_idx)) != VK_SUCCESS)
     throw std::runtime_error("ERROR: VPCommandBufferManager::endRecordingCommand - Failed!");
 }
 

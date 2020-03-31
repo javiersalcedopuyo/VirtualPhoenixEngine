@@ -30,13 +30,14 @@ int main()
                             s_scrollY = y;
                           });
 
-    renderer.m_pUserInputController->m_pScrollY = &s_scrollY;
-
     if (renderer.m_pUserInputController == nullptr)
       std::cout << "WARNING: No User Input Controller!" << std::endl;
     else
+    {
+      renderer.m_pUserInputController->m_pScrollY = &s_scrollY;
       renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementWASD );
       //renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementArrows );
+    }
 
     glm::mat4 modelMat1 = glm::mat4(1);
     glm::mat4 modelMat2 = glm::mat4(1);

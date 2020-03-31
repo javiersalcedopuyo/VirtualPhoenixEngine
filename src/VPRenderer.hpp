@@ -36,10 +36,10 @@
 #include <chrono>
 #include <functional>
 
-//#include "Managers/DevicesManager.hpp"
+#include "Managers/VPDeviceManagement.hpp"
+#include "Managers/VPStdRenderPipelineManager.hpp"
 #include "VPCamera.hpp"
 #include "VPUserInputController.hpp"
-#include "VPStdRenderPipelineManager.hpp"
 
 // TODO: Make it toggleable
 constexpr bool MSAA_ENABLED = false;
@@ -52,35 +52,6 @@ constexpr uint32_t DEFAULT_MATERIAL_IDX = 0;
 
 constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
-
-const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
-const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
-#ifdef NDEBUG
-  constexpr bool ENABLE_VALIDATION_LAYERS = false;
-#else
-  constexpr bool ENABLE_VALIDATION_LAYERS = true;
-#endif
-
-typedef struct
-{
-  std::optional<uint32_t> graphicsFamily;
-  std::optional<uint32_t> presentFamily;
-
-  bool isComplete() const
-  {
-    return graphicsFamily.has_value() && presentFamily.has_value();
-  }
-
-} QueueFamilyIndices_t;
-
-typedef struct
-{
-  VkSurfaceCapabilitiesKHR        capabilities;
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR>   presentModes;
-
-} SwapChainDetails_t;
 
 class VPRenderer
 {
@@ -157,7 +128,8 @@ private:
   VkDevice             m_logicalDevice;
   VkQueue              m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
   VkQueue              m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
-  QueueFamilyIndices_t m_queueFamiliesIndices;
+
+  VPDeviceManagement::QueueFamilyIndices_t m_queueFamiliesIndices;
 
   bool                     m_frameBufferResized;
   VkSwapchainKHR           m_swapChain;
@@ -192,28 +164,15 @@ private:
   VkDebugUtilsMessengerEXT m_debugMessenger;
 
   void initWindow();
-  void createVkInstance();
   void initVulkan();
   void drawFrame();
 
   void createSurface();
 
-  // Device management TODO: Move to an independent manager
-  void getPhysicalDevice();
-  bool isDeviceSuitable(VkPhysicalDevice _device);
-  void createLogicalDevice();
-
-  QueueFamilyIndices_t findQueueFamilies(VkPhysicalDevice _device);
-
   // Validation layers and extensions
-  bool checkValidationSupport();
-  bool checkExtensionSupport(VkPhysicalDevice _device);
-  std::vector<const char*> getRequiredExtensions();
-  void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo);
-  void initDebugMessenger();
+  std::vector<const char*> getGLFWRequiredExtensions();
 
   // Swapchain
-  SwapChainDetails_t querySwapChainSupport(VkPhysicalDevice _device);
   VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
   VkPresentModeKHR   chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
   VkExtent2D         chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
@@ -267,39 +226,22 @@ private:
     ++_height;
   }
 
-  static std::vector<char> ReadShaderFileCallback(const char* _fileName)
-  {
-    // Read the file from the end and as a binary file
-    std::ifstream file(_fileName, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) throw std::runtime_error("ERROR: Couldn't open file"); //%s", _fileName);
+  //static std::vector<char> ReadShaderFileCallback(const char* _fileName)
+  //{
+  //  // Read the file from the end and as a binary file
+  //  std::ifstream file(_fileName, std::ios::ate | std::ios::binary);
+  //  if (!file.is_open()) throw std::runtime_error("ERROR: Couldn't open file"); //%s", _fileName);
 
-    size_t fileSize = static_cast<size_t>(file.tellg());
-    // We use a vector of chars instead of a char* or a string for more simplicity during the shader module creation
-    std::vector<char> buffer(fileSize);
+  //  size_t fileSize = static_cast<size_t>(file.tellg());
+  //  // We use a vector of chars instead of a char* or a string for more simplicity during the shader module creation
+  //  std::vector<char> buffer(fileSize);
 
-    // Go back to the beginning of the gile and read all the bytes at once
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
+  //  // Go back to the beginning of the gile and read all the bytes at once
+  //  file.seekg(0);
+  //  file.read(buffer.data(), fileSize);
+  //  file.close();
 
-    return buffer;
-  };
-
-  static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-      VkDebugUtilsMessageSeverityFlagBitsEXT _messageSeverity,
-      VkDebugUtilsMessageTypeFlagsEXT _messageType,
-      const VkDebugUtilsMessengerCallbackDataEXT* _pCallbackData,
-      void* _pUserData)
-  {
-    if (_messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-    {
-      std::cerr << "Validation layer: " << _pCallbackData->pMessage << std::endl;
-      // Just to avoid compilation errors, not real functionality yet.
-      std::cerr << "Message Type: " << _messageType << std::endl;
-      if (_pUserData) std::cerr << "User Data exists!" << std::endl;
-    }
-
-    return VK_FALSE;
-  };
+  //  return buffer;
+  //};
 };
 #endif

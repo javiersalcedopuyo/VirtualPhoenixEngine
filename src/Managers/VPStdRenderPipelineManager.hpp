@@ -1,11 +1,8 @@
 #ifndef VP_STD_RENDER_PIPELINE_HPP
 #define VP_STD_RENDER_PIPELINE_HPP
 
-#ifndef GLFW_INCLUDE_VULKAN
-#define GLFW_INCLUDE_VULKAN
-#endif
+#include <vulkan/vulkan.h>
 
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
@@ -18,7 +15,7 @@
 // Loading files
 #include <fstream>
 
-#include "VPStdRenderableObject.hpp"
+#include "../VPStdRenderableObject.hpp"
 
 constexpr uint8_t BINDING_COUNT = 2;
 

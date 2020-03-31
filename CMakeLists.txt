@@ -12,9 +12,8 @@ add_subdirectory (src/)
 file(GLOB sourceFiles
   "src/*.hpp"
   "src/*.cpp"
-  # TODO: Move the device management into its own class
-  #"src/Managers/*.hpp"
-  #"src/Managers/*.cpp"
+  "src/Managers/*.hpp"
+  "src/Managers/*.cpp"
 )
 add_executable(VPEngine ${sourceFiles})
 

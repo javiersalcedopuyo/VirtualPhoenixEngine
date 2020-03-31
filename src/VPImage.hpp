@@ -6,7 +6,7 @@
 
 #include <cstring>
 
-#include "VPMemoryBufferManager.hpp"
+#include "Managers/VPMemoryBufferManager.hpp"
 
 class VPImage
 {

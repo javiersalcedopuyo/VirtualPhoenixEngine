@@ -115,23 +115,29 @@ namespace VPDeviceManagement
       queueCreateInfos.emplace_back(queueCreateInfo);
     }
 
-    VkPhysicalDeviceFeatures deviceFeatures = {};
-    deviceFeatures.samplerAnisotropy        = VK_TRUE;
+    VkPhysicalDeviceFeatures deviceFeatures{};
+    deviceFeatures.samplerAnisotropy = VK_TRUE;
 
-    VkDeviceCreateInfo createInfo      = {};
+    VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
+    indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+    indexingFeatures.runtimeDescriptorArray = VK_TRUE;
+
+    VkDeviceCreateInfo createInfo{};
     createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pQueueCreateInfos       = queueCreateInfos.data();
     createInfo.queueCreateInfoCount    = queueCreateInfos.size();
     createInfo.pEnabledFeatures        = &deviceFeatures;
+    createInfo.pNext                   = &indexingFeatures;
     createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
     // NOTE: enabledExtensionCount and ppEnabledLayerNames are ignored in modern Vulkan implementations
     createInfo.enabledExtensionCount   = DEVICE_EXTENSIONS.size();
     if (ENABLE_VALIDATION_LAYERS)
     {
-      createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-      createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
+      createInfo.enabledLayerCount     = VALIDATION_LAYERS.size();
+      createInfo.ppEnabledLayerNames   = VALIDATION_LAYERS.data();
     }
-    else createInfo.enabledLayerCount = 0;
+    else
+      createInfo.enabledLayerCount     = 0;
 
     if (vkCreateDevice(_physicalDevice, &createInfo, nullptr, &result) != VK_SUCCESS)
       throw std::runtime_error("ERROR: Failed to create logical device!");
@@ -177,12 +183,16 @@ namespace VPDeviceManagement
     vkGetPhysicalDeviceProperties(_device, &properties);
     vkGetPhysicalDeviceFeatures(_device, &features);
 
+    std::cout << "Using Vulkan API version: " << properties.apiVersion << std::endl;
+
     bool swapChainSupported = false;
     if (checkExtensionSupport(_device))
     {
       SwapChainDetails_t details = querySwapChainSupport(_device, _surface);
       swapChainSupported = !details.formats.empty() && !details.presentModes.empty();
     }
+    else
+      throw std::runtime_error("ERROR: VPDeviceManagement::idDeviceSuitable - Not all extensions supported");
 
     return features.samplerAnisotropy &&
             swapChainSupported &&

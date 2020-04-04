@@ -16,15 +16,16 @@
 #include <fstream>
 
 #include "../VPStdRenderableObject.hpp"
+#include "../VPLight.hpp"
 
-constexpr uint8_t BINDING_COUNT = 2;
+constexpr uint8_t BINDING_COUNT = 3;
 
 class VPStdRenderPipelineManager
 {
 public:
 
   VPStdRenderPipelineManager() = delete;
-  VPStdRenderPipelineManager(VkRenderPass* _renderPass) :
+  VPStdRenderPipelineManager(VkRenderPass* _renderPass, const size_t _lightsCount) :
     m_renderPass(_renderPass),
     m_pipelineLayout(VK_NULL_HANDLE),
     m_descriptorPool(VK_NULL_HANDLE)
@@ -32,10 +33,12 @@ public:
     m_descriptorPoolSizes = {};
     m_descriptorPoolSizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     m_descriptorPoolSizes[0].descriptorCount = 0;
-    m_descriptorPoolSizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    m_descriptorPoolSizes[1].descriptorCount = 0;
+    m_descriptorPoolSizes[1].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    m_descriptorPoolSizes[1].descriptorCount = _lightsCount;
+    m_descriptorPoolSizes[2].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    m_descriptorPoolSizes[2].descriptorCount = 0;
 
-    createLayouts();
+    createLayouts(_lightsCount);
   };
 
   ~VPStdRenderPipelineManager()
@@ -48,7 +51,9 @@ public:
   void createPipeline(const VkExtent2D& _extent, const VPMaterial& _material);
 
   VkShaderModule  createShaderModule(const std::vector<char>& _code);
-  void            createOrUpdateDescriptorSet(VPStdRenderableObject* _obj);
+  void            createOrUpdateDescriptorSet(VPStdRenderableObject* _obj,
+                                              VkBuffer& _lightsUBO,
+                                              const size_t _lightCount);
 
   void updateViewportState(const VkExtent2D& _extent);
 
@@ -62,6 +67,15 @@ public:
     return Vertex::getBindingDescription();
   }
 
+  inline void recreateLayouts(size_t _lightsCount)
+  {
+    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+    vkDestroyDescriptorSetLayout(logicalDevice, m_descriptorSetLayout, nullptr);
+    vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
+
+    createLayouts(_lightsCount);
+  }
+
   inline VkPipeline& getOrCreatePipeline(const VkExtent2D& _extent, const VPMaterial& _material)
   {
     if (m_pipelinePool.count(_material.hash) == 0)
@@ -72,15 +86,19 @@ public:
 
   inline VkPipelineLayout& getPipelineLayout() { return m_pipelineLayout; }
 
-  inline void createDescriptorPool(const uint32_t _size)
+  inline void createDescriptorPool(const size_t _objCount,
+                                   const size_t _lightCount,
+                                   const size_t _texCount)
   {
-    if (_size == 0) return;
+    if (_objCount == 0 || _lightCount ==0 || _texCount == 0) return;
 
     m_descriptorPoolSizes = {};
     m_descriptorPoolSizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    m_descriptorPoolSizes[0].descriptorCount = _size;
-    m_descriptorPoolSizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    m_descriptorPoolSizes[1].descriptorCount = _size;
+    m_descriptorPoolSizes[0].descriptorCount = _objCount;
+    m_descriptorPoolSizes[1].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    m_descriptorPoolSizes[1].descriptorCount = _lightCount;
+    m_descriptorPoolSizes[2].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    m_descriptorPoolSizes[2].descriptorCount = _texCount;
 
     m_descriptorPool = VPMemoryBufferManager::getInstance()
                          .createDescriptorPool(m_descriptorPoolSizes.data(),
@@ -110,7 +128,7 @@ private:
   std::array<VkDescriptorPoolSize, BINDING_COUNT> m_descriptorPoolSizes;
   VkDescriptorPool                                m_descriptorPool;
 
-  void createLayouts();
+  void createLayouts(const size_t _lightCount);
 };
 
 #endif

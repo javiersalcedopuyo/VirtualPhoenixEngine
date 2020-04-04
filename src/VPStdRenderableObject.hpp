@@ -3,11 +3,12 @@
 
 #include "VPMaterial.hpp"
 
-struct ModelViewProjUBO
+struct alignas(32) ModelViewProjNormalUBO
 {
-  alignas(16) glm::mat4 model;
+  alignas(16) glm::mat4 modelView;
   alignas(16) glm::mat4 view;
   alignas(16) glm::mat4 proj;
+  alignas(16) glm::mat4 normal;
 };
 
 class VPStdRenderableObject
@@ -69,7 +70,7 @@ public:
 
   inline void createUniformBuffers()
   {
-    VPMemoryBufferManager::getInstance().createBuffer(sizeof(ModelViewProjUBO),
+    VPMemoryBufferManager::getInstance().createBuffer(sizeof(ModelViewProjNormalUBO),
                                                       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,

@@ -52,6 +52,7 @@ constexpr uint32_t DEFAULT_MATERIAL_IDX = 0;
 
 constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
+constexpr VkClearColorValue CLEAR_COLOR_SKY   = {0.53f, 0.81f, 0.92f, 1.0f};
 
 class VPRenderer
 {
@@ -64,6 +65,32 @@ public:
   void init();
   void renderLoop();
   void cleanUp();
+
+  uint32_t addLight(VPLight& _light)
+  {
+    uint32_t   idx     = m_lights.size();
+    const auto uboSize = sizeof(LightUBO);
+
+    m_lights.emplace_back(_light.type, idx, _light.ubo);
+
+    vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
+    vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
+
+    auto& bufferManager = VPMemoryBufferManager::getInstance();
+    bufferManager.createBuffer(uboSize * m_lights.size(),
+                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                               &m_lightsUBO,
+                               &m_lightsUBOMemory);
+
+    for (auto& light : m_lights)
+      bufferManager.copyToBufferMemory(&light.ubo, m_lightsUBOMemory, uboSize, uboSize * light.idx);
+
+    recreateSwapChain();
+
+    return idx;
+  }
 
   uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat);
 
@@ -139,7 +166,7 @@ private:
   std::vector<VkImageView> m_swapChainImageViews;
 
   VkRenderPass                 m_renderPass;
-  VPStdRenderPipelineManager*         m_pGraphicsPipelineManager;
+  VPStdRenderPipelineManager*  m_pGraphicsPipelineManager;
   std::vector<VkFramebuffer>   m_swapChainFrameBuffers;
 
   size_t m_currentFrame;
@@ -148,8 +175,12 @@ private:
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
 
+  std::vector<VPLight>               m_lights;
   std::vector<VPStdRenderableObject> m_renderableObjects;
   std::vector<VPMaterial*>           m_pMaterials;
+
+  VkBuffer       m_lightsUBO;
+  VkDeviceMemory m_lightsUBOMemory;
 
   VkImage        m_depthImage;
   VkDeviceMemory m_depthMemory;
@@ -192,6 +223,8 @@ private:
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
 
+  void updateScene();
+  void updateLights();
   void updateObjects();
 
   void     createDepthResources();

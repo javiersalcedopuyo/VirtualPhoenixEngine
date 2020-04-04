@@ -50,6 +50,9 @@ void VPRenderer::initVulkan()
   m_logicalDevice        = VPDeviceManagement::createLogicalDevice(m_physicalDevice,
                                                                    m_queueFamiliesIndices);
 
+  VkPhysicalDeviceProperties properties{};
+  vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
+
   vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
   vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.presentFamily.value(), 0, &m_presentQueue);
 
@@ -76,6 +79,13 @@ void VPRenderer::initVulkan()
   if (MSAA_ENABLED) createColorResources();
   createDepthResources();
   createFrameBuffers();
+
+  VPMemoryBufferManager::getInstance().createBuffer(sizeof(LightUBO),
+                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                    &m_lightsUBO,
+                                                    &m_lightsUBOMemory);
 
   setupRenderCommands();
   createSyncObjects();
@@ -127,7 +137,7 @@ void VPRenderer::drawFrame()
   VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-  updateObjects();
+  updateScene();
 
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -369,12 +379,18 @@ void VPRenderer::recreateSwapChain()
   createDepthResources();
   createFrameBuffers();
 
-  m_pGraphicsPipelineManager->createDescriptorPool(m_renderableObjects.size());
+  m_pGraphicsPipelineManager->createDescriptorPool(m_renderableObjects.size(),
+                                                   m_lights.size() * m_renderableObjects.size(),
+                                                   m_renderableObjects.size());
+
+  // NOTE: Right now this is overkill, but it will come handy if we use a single buffer for all
+  //       objects' MVPNs
+  m_pGraphicsPipelineManager->recreateLayouts(m_lights.size());
 
   for (auto& object : m_renderableObjects)
   {
     object.createUniformBuffers();
-    m_pGraphicsPipelineManager->createOrUpdateDescriptorSet(&object);
+    m_pGraphicsPipelineManager->createOrUpdateDescriptorSet(&object, m_lightsUBO, m_lights.size());
   }
 
   setupRenderCommands();
@@ -480,7 +496,7 @@ void VPRenderer::createGraphicsPipelineManager()
     delete m_pGraphicsPipelineManager;
     m_pGraphicsPipelineManager = nullptr;
   }
-  m_pGraphicsPipelineManager = new VPStdRenderPipelineManager(&m_renderPass);
+  m_pGraphicsPipelineManager = new VPStdRenderPipelineManager(&m_renderPass, m_lights.size());
 }
 
 void VPRenderer::createFrameBuffers()
@@ -553,6 +569,14 @@ void VPRenderer::setupRenderCommands()
                         m_pGraphicsPipelineManager->getOrCreatePipeline(m_swapChainExtent,
                                                                         *object.m_pMaterial));
 
+      const int numLights = m_lights.size();
+      vkCmdPushConstants(commandBufferManager.getBufferAt(i),
+                         m_pGraphicsPipelineManager->getPipelineLayout(),
+                         VK_SHADER_STAGE_FRAGMENT_BIT,
+                         0,
+                         sizeof(int),
+                         &numLights);
+
       // Bind the vertex buffers
       VkBuffer     vertexBuffers[] = {object.m_vertexBuffer};
       VkDeviceSize offsets[]       = {0};
@@ -581,6 +605,16 @@ void VPRenderer::setupRenderCommands()
   }
 }
 
+void VPRenderer::updateScene()
+{
+  //updateLights();
+  updateObjects();
+}
+
+void VPRenderer::updateLights()
+{ // TODO:
+}
+
 void VPRenderer::updateObjects()
 {
   if (m_pCamera == nullptr) m_pCamera = new VPCamera();
@@ -588,19 +622,21 @@ void VPRenderer::updateObjects()
   m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
                              static_cast<float>(m_swapChainExtent.height) );
 
-  ModelViewProjUBO mvpUBO = {};
-  mvpUBO.view             = m_pCamera->getViewMat();
-  mvpUBO.proj             = m_pCamera->getProjMat();
+  ModelViewProjNormalUBO mvpnUBO = {};
+  mvpnUBO.view             = m_pCamera->getViewMat();
+  mvpnUBO.proj             = m_pCamera->getProjMat();
 
   for (auto& object : m_renderableObjects)
   {
     object.update(m_deltaTime);
 
-    mvpUBO.model = object.m_model;
+    mvpnUBO.modelView = mvpnUBO.view * object.m_model;
+    mvpnUBO.normal    = glm::transpose(glm::inverse(mvpnUBO.modelView));
 
-    VPMemoryBufferManager::getInstance().copyToBufferMemory(&mvpUBO,
+    // TODO: Update just the needed fields instead of everything
+    VPMemoryBufferManager::getInstance().copyToBufferMemory(&mvpnUBO,
                                                             object.m_uniformBufferMemory,
-                                                            sizeof(mvpUBO));
+                                                            sizeof(mvpnUBO));
   }
 }
 
@@ -760,6 +796,8 @@ void VPRenderer::cleanUp()
 
   for (auto& obj : m_renderableObjects) obj.cleanUp();
   for (auto& mat : m_pMaterials) delete mat;
+  vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
+  vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
 
   delete m_pGraphicsPipelineManager;
 

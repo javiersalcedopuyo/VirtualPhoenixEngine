@@ -1,39 +1,60 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_nonuniform_qualifier    : enable
 
-layout(set = 0, binding = 1) uniform sampler2D _texSampler;
+layout(set = 0, binding = 0) uniform modelViewProjectionNormalUBO
+{
+  mat4 modelView;
+  mat4 view;
+  mat4 proj;
+  mat4 Normal;
+} u_mvpn;
 
-layout(location = 0) in  vec3 _fragColor;
+layout(set = 0, binding = 1) uniform lightsUBO
+{
+  float intensity;
+  float range;
+  float angle;
+  vec3  position;
+  vec3  color;
+  vec3  direction;
+} u_lights[];
+
+layout(set = 0, binding = 2) uniform sampler2D _texSampler;
+
+layout(push_constant) uniform PushConstant
+{
+  int count;
+} _numLights;
+
+layout(location = 0) in  vec3 _position;
 layout(location = 1) in  vec3 _normal;
 layout(location = 2) in  vec2 _texCoord;
-layout(location = 3) in  vec3 _lightVector;
-layout(location = 4) in  vec3 _viewVector;
 
 layout(location = 0) out vec4 _outColor; // location=0: framebuffer index
 
 void main()
 {
-  const vec3  texColor   = texture(_texSampler, _texCoord).rgb;
-  const vec3  dirToLight = normalize(_lightVector);
-  const vec3  halfVector = (dirToLight + normalize(_viewVector)) * 0.5;
-  const float ligthDist  = length(_lightVector);
+  const vec3  texColor       = texture(_texSampler, _texCoord).rgb;
+  const vec3  viewDirection  = normalize(-_position);
+  const vec3  normal         = normalize(_normal);
+  const float glossy         = 10.0; // TODO: Get as uniform
 
-  // TODO: Get as uniforms /////////////////////////////////////////////////////////////////////////
-  const float lightI   = 0.5;
-  const float ambientI = 0.1;
+  vec3 ambient  = 0.1 * vec3(1);
+  vec3 diffuse  = vec3(0);
+  vec3 specular = vec3(0);
 
-  const float Ka       = 1.0;
-  const float Kd       = 1.0;
-  const float Ks       = 1.0;
-  const float glossy   = 10.0;
-  //////////////////////////////////////////////////////////////////////////////////////////////////
+  for (int i = 0; i < _numLights.count; ++i)
+  {
+    vec3  lightVector = (u_mvpn.view * vec4(u_lights[i].position, 1.0) - vec4(_position, 1.0)).xyz;
+    vec3  halfVector  = (normalize(lightVector) + viewDirection) * 0.5;
+    float distToLight = length(lightVector);
+    float attenuation = 1.0 / (distToLight * distToLight);
 
-  const float attenuationFactor = 1.0 / ligthDist * ligthDist; // TODO: Use Attenuation coeficients
+    diffuse  += attenuation * u_lights[i].color * u_lights[i].intensity * clamp(dot(normalize(lightVector), _normal), 0, 1);
+    specular += attenuation * u_lights[i].color * pow( dot(_normal, halfVector), glossy );
+  }
 
-  float ambient  = ambientI * Ka;
-  float diffuse  = lightI   * Kd * attenuationFactor * clamp(dot(dirToLight, _normal), 0, 1);
-  float specular = lightI   * Ks * pow(clamp(dot(_normal, halfVector), 0, 1), glossy);
-
-  _outColor.rgb  = texColor * (ambient + diffuse + specular);
-  _outColor.a    = 1.0;
+  _outColor.rgb = texColor * (ambient + diffuse + specular);
+  _outColor.a   = 1.0;
 }

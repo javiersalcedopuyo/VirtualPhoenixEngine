@@ -97,7 +97,8 @@ void VPMemoryBufferManager::fillBuffer(VkBuffer*             _dst,
   vkFreeMemory(*m_pLogicalDevice, stagingMemory, nullptr);
 }
 
-VkDescriptorPool VPMemoryBufferManager::createDescriptorPool(VkDescriptorPoolSize* _poolSizes, const uint32_t _count)
+VkDescriptorPool VPMemoryBufferManager::createDescriptorPool(VkDescriptorPoolSize* _poolSizes,
+                                                             const uint32_t _count)
 {
   if (_count == 0) return VK_NULL_HANDLE;
 

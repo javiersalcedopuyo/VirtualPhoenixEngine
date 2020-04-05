@@ -1,6 +1,10 @@
 #ifndef VP_LIGHT_HPP
 #define VP_LIGHT_HPP
 
+#ifndef GLM_FORCE_LEFT_HANDED
+#define GLM_FORCE_LEFT_HANDED
+#endif
+
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 

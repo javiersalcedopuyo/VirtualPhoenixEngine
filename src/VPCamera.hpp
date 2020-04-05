@@ -8,12 +8,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
-constexpr glm::vec3 UP    = glm::vec3( 0.0f,  0.0f,  1.0f);
-constexpr glm::vec3 DOWN  = glm::vec3( 0.0f,  0.0f, -1.0f);
+constexpr glm::vec3 UP    = glm::vec3( 0.0f,  1.0f,  0.0f);
+constexpr glm::vec3 DOWN  = glm::vec3( 0.0f, -1.0f,  0.0f);
 constexpr glm::vec3 LEFT  = glm::vec3(-1.0f,  0.0f,  0.0f);
 constexpr glm::vec3 RIGHT = glm::vec3( 1.0f,  0.0f,  0.0f);
-constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  1.0f,  0.0f);
-constexpr glm::vec3 BACK  = glm::vec3( 0.0f, -1.0f,  0.0f);
+constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  0.0f,  1.0f);
+constexpr glm::vec3 BACK  = glm::vec3( 0.0f,  0.0f, -1.0f);
 
 class VPCamera
 {
@@ -25,8 +25,8 @@ public:
     fieldOfView(glm::radians(45.0f)),
     aspectRatio(1.0f),
     position(glm::vec3(0.0f)),
-    forward(glm::vec3(0.0f, 1.0f, 0.0f)),
-    up(glm::vec3(0.0f, 0.0f, 1.0f))
+    forward(FRONT),
+    up(UP)
   {
     init();
   };
@@ -97,20 +97,20 @@ public:
 
   inline void translate(const glm::vec3& _translation)
   {
-    position += glm::normalize(glm::cross(forward, up)) * _translation.x +
-                forward * _translation.y +
-                up * _translation.z;
+    position += glm::normalize(glm::cross(up, forward)) * _translation.x +
+                up * _translation.y +
+                forward * _translation.z;
 
     view      = glm::lookAt(position, position + forward, up);
   }
 
   inline void rotate(const glm::vec3& _eulerAngles)
   { // TODO: Use quaternions
-    // I'm using Y -> Z -> X to avoid gimball lock, since we are not rolling (our UP is Z)
+    // I'm using Z -> Y -> X to avoid gimball lock, since we are not rolling
     //Roll
-    forward = glm::rotate(forward, glm::radians(_eulerAngles.y), forward);
+    forward = glm::rotate(forward, glm::radians(_eulerAngles.z), forward);
     // Pan
-    forward = glm::rotate(forward, glm::radians(_eulerAngles.z), up);
+    forward = glm::rotate(forward, -glm::radians(_eulerAngles.y), up);
     // Tilt
     forward = glm::rotate(forward, glm::radians(_eulerAngles.x), glm::cross(forward, up));
 

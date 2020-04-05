@@ -246,7 +246,7 @@ void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const
   rasterizer.polygonMode             = VK_POLYGON_MODE_FILL; // LINE for wireframe
   rasterizer.lineWidth               = 1.0; // >1 values require enabling the wideLines GPU feature
   rasterizer.cullMode                = VK_CULL_MODE_BACK_BIT;
-  rasterizer.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  rasterizer.frontFace               = VK_FRONT_FACE_CLOCKWISE;
   rasterizer.depthBiasEnable         = VK_FALSE;
 
   // Multi-sampling

@@ -29,10 +29,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/hash.hpp>
-
 #include <chrono>
 #include <functional>
 

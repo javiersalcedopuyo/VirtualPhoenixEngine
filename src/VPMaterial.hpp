@@ -3,9 +3,6 @@
 
 #include <vulkan/vulkan.h>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include <string>
 #include <vector>
 

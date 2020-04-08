@@ -404,10 +404,10 @@ void Renderer::createImageViews()
   m_swapChainImageViews.resize(m_swapChainImages.size());
 
   for (size_t i=0; i<m_swapChainImageViews.size(); ++i)
-    m_swapChainImageViews[i] = Image::createImageView(m_swapChainImages[i],
-                                                        m_swapChainImageFormat,
-                                                        VK_IMAGE_ASPECT_COLOR_BIT,
-                                                        1);
+    m_swapChainImageViews.at(i) = Image::createImageView(m_swapChainImages.at(i),
+                                                         m_swapChainImageFormat,
+                                                         VK_IMAGE_ASPECT_COLOR_BIT,
+                                                         1);
 }
 
 void Renderer::createRenderPass()
@@ -513,11 +513,11 @@ void Renderer::createFrameBuffers()
     {
       attachments.push_back(m_colorImageView);
       attachments.push_back(m_depthImageView);
-      attachments.push_back(m_swapChainImageViews[i]);
+      attachments.push_back(m_swapChainImageViews.at(i));
     }
     else
     {
-      attachments.push_back(m_swapChainImageViews[i]);
+      attachments.push_back(m_swapChainImageViews.at(i));
       attachments.push_back(m_depthImageView);
     }
 
@@ -530,7 +530,7 @@ void Renderer::createFrameBuffers()
     createInfo.height                  = m_swapChainExtent.height;
     createInfo.layers                  = 1;
 
-    if (vkCreateFramebuffer(m_logicalDevice, &createInfo, nullptr, &m_swapChainFrameBuffers[i]) != VK_SUCCESS)
+    if (vkCreateFramebuffer(m_logicalDevice, &createInfo, nullptr, &m_swapChainFrameBuffers.at(i)) != VK_SUCCESS)
       throw std::runtime_error("ERROR: Failed to create the framebuffer.");
   }
 }
@@ -766,13 +766,13 @@ void Renderer::createSyncObjects()
 
   for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {
-    if (vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS)
+    if (vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_imageAvailableSemaphores.at(i)) != VK_SUCCESS ||
+        vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &m_renderFinishedSemaphores.at(i)) != VK_SUCCESS)
     {
       throw std::runtime_error("Failed to create semaphores!");
     }
 
-    if (vkCreateFence(m_logicalDevice, &fencesCI, nullptr, &m_inFlightFences[i]) != VK_SUCCESS)
+    if (vkCreateFence(m_logicalDevice, &fencesCI, nullptr, &m_inFlightFences.at(i)) != VK_SUCCESS)
     {
       throw std::runtime_error("Failed to create fences!");
     }
@@ -789,9 +789,9 @@ void Renderer::cleanUp()
 
   for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {
-    vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores[i], nullptr);
-    vkDestroySemaphore(m_logicalDevice, m_renderFinishedSemaphores[i], nullptr);
-    vkDestroyFence(m_logicalDevice, m_inFlightFences[i], nullptr);
+    vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores.at(i), nullptr);
+    vkDestroySemaphore(m_logicalDevice, m_renderFinishedSemaphores.at(i), nullptr);
+    vkDestroyFence(m_logicalDevice, m_inFlightFences.at(i), nullptr);
   }
 
   cleanUpSwapChain();

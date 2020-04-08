@@ -1,5 +1,6 @@
 #include "VPStdRenderPipelineManager.hpp"
 
+namespace vpe {
 VkShaderModule VPStdRenderPipelineManager::createShaderModule(const std::vector<char>& _code)
 {
   const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
@@ -76,7 +77,7 @@ void VPStdRenderPipelineManager::createLayouts(const size_t _lightCount)
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createLayouts - Failed to create the pipeline layout!");
 }
 
-void VPStdRenderPipelineManager::createOrUpdateDescriptorSet(VPStdRenderableObject* _obj,
+void VPStdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* _obj,
                                                              VkBuffer& _lightsUBO,
                                                              const size_t _lightCount)
 {
@@ -188,7 +189,7 @@ void VPStdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
   m_viewportState.pScissors     = scissor;
 }
 
-void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const VPMaterial& _material)
+void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const Material& _material)
 {
   const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -313,4 +314,5 @@ void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const
   vkDestroyShaderModule(logicalDevice, fragShaderMod, nullptr);
 
   m_pipelinePool.emplace(_material.hash, newPipeline);
+}
 }

@@ -7,7 +7,7 @@ static double s_scrollY = 0;
 
 int main()
 {
-  VPRenderer renderer;
+  vpe::Renderer renderer;
 
   std::cout << "Starting..." << std::endl;
 
@@ -35,11 +35,11 @@ int main()
     else
     {
       renderer.m_pUserInputController->m_pScrollY = &s_scrollY;
-      renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementWASD );
+      renderer.m_pUserInputController->setCameraMovementCB( vpe::callbacks::cameraMovementWASD );
       //renderer.m_pUserInputController->setCameraMovementCB( VPCallbacks::cameraMovementArrows );
     }
 
-    VPLight light1;
+    vpe::Light light1;
     light1.ubo.color     = glm::vec3(1, 0.5, 0.5);
     light1.ubo.position  = glm::vec3(-1, 2, 0);
     light1.ubo.intensity = 1.5;
@@ -69,10 +69,12 @@ int main()
     uint32_t dragonIdx1 = renderer.createObject("../Models/teapot.obj", modelMat1);
     uint32_t dragonIdx2 = renderer.createObject("../Models/dragon.obj", modelMat2);
 
-    uint32_t newMaterialIdx = renderer.createMaterial(DEFAULT_VERT, DEFAULT_FRAG, "../Textures/ColorTestTex.png");
+    uint32_t newMaterialIdx = renderer.createMaterial(vpe::DEFAULT_VERT,
+                                                      vpe::DEFAULT_FRAG,
+                                                      "../Textures/ColorTestTex.png");
 
     renderer.setObjMaterial(dragonIdx1, newMaterialIdx);
-    renderer.setObjMaterial(dragonIdx2, DEFAULT_MATERIAL_IDX);
+    renderer.setObjMaterial(dragonIdx2, vpe::DEFAULT_MATERIAL_IDX);
     //renderer.loadTextureToMaterial("../Textures/ColorTestTex.png", DEFAULT_MATERIAL_IDX);
 
     auto rotateCB = [](const float _deltaTime, glm::mat4& _model)

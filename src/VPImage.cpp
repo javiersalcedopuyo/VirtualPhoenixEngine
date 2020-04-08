@@ -1,7 +1,9 @@
 #include "VPImage.hpp"
 #include <cmath>
 
-void VPImage::createImage(const VkImageCreateInfo& _info,
+namespace vpe
+{
+void Image::createImage(const VkImageCreateInfo& _info,
                           VkImage&                 _image,
                           VkDeviceMemory&          _imageMemory)
 {
@@ -29,7 +31,7 @@ void VPImage::createImage(const VkImageCreateInfo& _info,
   vkBindImageMemory(logicalDevice, _image, _imageMemory, 0);
 }
 
-VkImageView VPImage::createImageView(const VkImage&           _image,
+VkImageView Image::createImageView(const VkImage&           _image,
                                      const VkFormat&          _format,
                                      const VkImageAspectFlags _aspectFlags,
                                      const uint32_t           _mipLevels)
@@ -61,7 +63,7 @@ VkImageView VPImage::createImageView(const VkImage&           _image,
   return result;
 }
 
-void VPImage::createImageSampler(const uint32_t _mipLevels)
+void Image::createImageSampler(const uint32_t _mipLevels)
 {
   const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -87,7 +89,7 @@ void VPImage::createImageSampler(const uint32_t _mipLevels)
     throw std::runtime_error("ERROR: createTextureSampler - Failed!");
 }
 
-void VPImage::transitionLayout(const VkImage&       _image,
+void Image::transitionLayout(const VkImage&       _image,
                                const VkFormat       _format,
                                const VkImageLayout& _oldLayout,
                                const VkImageLayout& _newLayout,
@@ -95,7 +97,7 @@ void VPImage::transitionLayout(const VkImage&       _image,
 {
   VkPipelineStageFlags srcStage;
   VkPipelineStageFlags dstStage;
-  VkCommandBuffer      commandBuffer = VPCommandBufferManager::getInstance().beginSingleTimeCommand();
+  VkCommandBuffer      commandBuffer = CommandBufferManager::getInstance().beginSingleTimeCommand();
 
   VkImageMemoryBarrier barrier            = {};
   barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -152,10 +154,10 @@ void VPImage::transitionLayout(const VkImage&       _image,
                        0, nullptr, // Buffer memory barriers
                        1, &barrier); // Image memory barriers
 
-  VPCommandBufferManager::getInstance().endSingleTimeCommand(commandBuffer);
+  CommandBufferManager::getInstance().endSingleTimeCommand(commandBuffer);
 }
 
-void VPImage::loadFromFile(const char* _path)
+void Image::loadFromFile(const char* _path)
 {
   VPMemoryBufferManager& bufferManager = VPMemoryBufferManager::getInstance();
   const VkDevice&        logicalDevice = *bufferManager.m_pLogicalDevice;
@@ -229,10 +231,10 @@ void VPImage::loadFromFile(const char* _path)
   if (m_needsSampler) createImageSampler(mipLevels);
 }
 
-void VPImage::copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,
+void Image::copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,
                                 const uint32_t  _width,  const uint32_t _height)
 {
-  VkCommandBuffer commandBuffer = VPCommandBufferManager::getInstance().beginSingleTimeCommand();
+  VkCommandBuffer commandBuffer = CommandBufferManager::getInstance().beginSingleTimeCommand();
 
   VkBufferImageCopy region               = {};
   region.bufferOffset                    = 0; // Buffer index with the 1st pixel value
@@ -253,10 +255,10 @@ void VPImage::copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,
                          1,
                          &region);
 
-  VPCommandBufferManager::getInstance().endSingleTimeCommand(commandBuffer);
+  CommandBufferManager::getInstance().endSingleTimeCommand(commandBuffer);
 }
 
-void VPImage::generateMipMaps(VkImage&       _image,
+void Image::generateMipMaps(VkImage&       _image,
                               const VkFormat _format,
                               int            _width,
                               int            _height,
@@ -270,7 +272,7 @@ void VPImage::generateMipMaps(VkImage&       _image,
   if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
     throw std::runtime_error("ERROR: generateMipMaps - Texture image format doesn't support linear blitting!");
 
-  VkCommandBuffer commandBuffer = VPCommandBufferManager::getInstance().beginSingleTimeCommand();
+  VkCommandBuffer commandBuffer = CommandBufferManager::getInstance().beginSingleTimeCommand();
 
   VkImageMemoryBarrier barrier            = {};
   barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -354,5 +356,6 @@ void VPImage::generateMipMaps(VkImage&       _image,
                        0, nullptr,
                        1, &barrier);
 
-  VPCommandBufferManager::getInstance().endSingleTimeCommand(commandBuffer);
+  CommandBufferManager::getInstance().endSingleTimeCommand(commandBuffer);
+}
 }

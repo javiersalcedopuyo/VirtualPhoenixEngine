@@ -11,7 +11,9 @@
 
 #include "VPCamera.hpp"
 
-struct VPUserInputContext
+namespace vpe
+{
+struct UserInputContext
 {
   void* pData;
   float cameraMoveSpeed;
@@ -21,13 +23,13 @@ struct VPUserInputContext
 
   std::array<double,2> cursorDelta;
 
-  VPCamera*   camera;
+  Camera*   camera;
   GLFWwindow* window;
 };
 
-namespace VPCallbacks
+namespace callbacks
 {
-  static inline void cameraMovementWASD(VPUserInputContext& _ctx)
+  static inline void cameraMovementWASD(UserInputContext& _ctx)
   {
     if (_ctx.camera == nullptr) return;
 
@@ -86,7 +88,7 @@ namespace VPCallbacks
     _ctx.camera->translate( direction * distance );
   }
 
-  static inline void cameraMovementArrows(VPUserInputContext& _ctx)
+  static inline void cameraMovementArrows(UserInputContext& _ctx)
   {
     if (_ctx.camera == nullptr) return;
 
@@ -103,5 +105,5 @@ namespace VPCallbacks
     _ctx.camera->translate( direction * distance );
   }
 }
-
+}
 #endif

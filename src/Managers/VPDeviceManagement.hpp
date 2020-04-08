@@ -14,7 +14,8 @@
 #include <set>
 #include <vector>
 
-namespace VPDeviceManagement
+namespace vpe {
+namespace deviceManagement
 {
   const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
   const std::vector<const char*> DEVICE_EXTENSIONS = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
@@ -68,5 +69,5 @@ namespace VPDeviceManagement
                                          VkDebugUtilsMessengerEXT debugMessenger,
                                          const VkAllocationCallbacks* pAllocator);
 }
-
+}
 #endif

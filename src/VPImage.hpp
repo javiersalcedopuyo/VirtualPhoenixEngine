@@ -8,11 +8,13 @@
 
 #include "Managers/VPMemoryBufferManager.hpp"
 
-class VPImage
+namespace vpe
+{
+class Image
 {
 public:
 
-  VPImage() :
+  Image() :
     m_needsSampler(true),
     m_image(VK_NULL_HANDLE),
     m_memory(VK_NULL_HANDLE),
@@ -20,14 +22,14 @@ public:
     m_sampler(VK_NULL_HANDLE)
   {}
 
-  VPImage(bool _needsSampler) :
+  Image(bool _needsSampler) :
     m_needsSampler(_needsSampler),
     m_image(VK_NULL_HANDLE),
     m_memory(VK_NULL_HANDLE),
     m_imageView(VK_NULL_HANDLE),
     m_sampler(VK_NULL_HANDLE)
   {}
-  ~VPImage() { cleanUp(); }
+  ~Image() { cleanUp(); }
 
   void loadFromFile(const char* _path);
 
@@ -80,5 +82,5 @@ private:
                        int            _height,
                        uint32_t       _mipLevels);
 };
-
+}
 #endif

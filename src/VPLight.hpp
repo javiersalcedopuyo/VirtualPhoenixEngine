@@ -8,6 +8,8 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
+namespace vpe
+{
 enum class LightType : uint8_t
 {
   POINT = 0,
@@ -26,11 +28,11 @@ struct alignas(32) LightUBO
   alignas(16) glm::vec3 forward;
 };
 
-struct VPLight
+struct Light
 {
-  VPLight() : idx(0) {};
-  VPLight(uint32_t _idx) : idx(_idx) {};
-  VPLight(LightType _type, uint32_t _idx, LightUBO& _ubo) :
+  Light() : idx(0) {};
+  Light(uint32_t _idx) : idx(_idx) {};
+  Light(LightType _type, uint32_t _idx, LightUBO& _ubo) :
     type(_type),
     idx(_idx),
     ubo(_ubo)
@@ -40,5 +42,5 @@ struct VPLight
   const uint32_t  idx;
   LightUBO  ubo;
 };
-
+}
 #endif

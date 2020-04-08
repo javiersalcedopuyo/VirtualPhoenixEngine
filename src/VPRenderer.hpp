@@ -37,6 +37,8 @@
 #include "VPCamera.hpp"
 #include "VPUserInputController.hpp"
 
+namespace vpe
+{
 // TODO: Make it toggleable
 constexpr bool MSAA_ENABLED = false;
 
@@ -50,19 +52,19 @@ constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_SKY   = {0.53f, 0.81f, 0.92f, 1.0f};
 
-class VPRenderer
+class Renderer
 {
 public:
-  VPRenderer();
-  ~VPRenderer();
+  Renderer();
+  ~Renderer();
 
-  VPUserInputController* m_pUserInputController;
+  UserInputController* m_pUserInputController;
 
   void init();
   void renderLoop();
   void cleanUp();
 
-  uint32_t addLight(VPLight& _light)
+  uint32_t addLight(Light& _light)
   {
     uint32_t   idx     = m_lights.size();
     const auto uboSize = sizeof(LightUBO);
@@ -94,7 +96,7 @@ public:
                                  const char* _fragShaderPath,
                                  const char* _texturePath)
   {
-    m_pMaterials.push_back(new VPMaterial(_vertShaderPath, _fragShaderPath, _texturePath));
+    m_pMaterials.push_back(new Material(_vertShaderPath, _fragShaderPath, _texturePath));
     return m_pMaterials.size() - 1;
   }
 
@@ -111,7 +113,7 @@ public:
   {
     if (m_pCamera == nullptr)
     {
-      m_pCamera = new VPCamera(_position, _forward, _up,
+      m_pCamera = new Camera(_position, _forward, _up,
                               _near,     _far,     _fov, 1.0f);
     }
     else
@@ -142,7 +144,7 @@ public:
 private:
   GLFWwindow*            m_pWindow;
   VkSurfaceKHR           m_surface;
-  VPCamera*              m_pCamera; // TODO: Multi-camera
+  Camera*              m_pCamera; // TODO: Multi-camera
 
   float m_deltaTime;
 
@@ -152,7 +154,7 @@ private:
   VkQueue              m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
   VkQueue              m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
 
-  VPDeviceManagement::QueueFamilyIndices_t m_queueFamiliesIndices;
+  deviceManagement::QueueFamilyIndices_t m_queueFamiliesIndices;
 
   bool                     m_frameBufferResized;
   VkSwapchainKHR           m_swapChain;
@@ -171,9 +173,9 @@ private:
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
 
-  std::vector<VPLight>               m_lights;
-  std::vector<VPStdRenderableObject> m_renderableObjects;
-  std::vector<VPMaterial*>           m_pMaterials;
+  std::vector<Light>               m_lights;
+  std::vector<StdRenderableObject> m_renderableObjects;
+  std::vector<Material*>           m_pMaterials;
 
   VkBuffer       m_lightsUBO;
   VkDeviceMemory m_lightsUBOMemory;
@@ -248,7 +250,7 @@ private:
 
   static void FramebufferResizeCallback(GLFWwindow* _window, int _width, int _height)
   {
-    VPRenderer* app = reinterpret_cast<VPRenderer*>(glfwGetWindowUserPointer(_window));
+    Renderer* app = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(_window));
     app->m_frameBufferResized = true;
     // Just so the compiler doesn't complain TODO: Whitelist this
     ++_width;
@@ -273,4 +275,5 @@ private:
   //  return buffer;
   //};
 };
+}
 #endif

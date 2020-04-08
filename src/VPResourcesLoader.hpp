@@ -12,6 +12,8 @@
 
 #include <tiny_obj_loader.h>
 
+namespace vpe
+{
 struct Vertex
 {
   bool operator==(const Vertex& other) const
@@ -63,22 +65,25 @@ struct Vertex
     return descriptions;
   }
 };
+} // namespace vpe
 
+namespace std
+{
 // Needed to use Vertex as keys in an unordered map
-namespace std {
-  template <> struct hash<Vertex>
+template <> struct hash<vpe::Vertex>
+{
+  size_t operator()(vpe::Vertex const& vertex) const
   {
-    size_t operator()(Vertex const& vertex) const
-    {
-      return ((((hash<glm::vec3>()(vertex.pos) ^
-                (hash<glm::vec3>()(vertex.color) << 1)) >>1) ^
-                (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
-                (hash<glm::vec2>()(vertex.texCoord) << 1);
-    }
-  };
-}
+    return ((((hash<glm::vec3>()(vertex.pos) ^
+              (hash<glm::vec3>()(vertex.color) << 1)) >>1) ^
+              (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
+              (hash<glm::vec2>()(vertex.texCoord) << 1);
+  }
+};
+} // namespace std
 
-namespace VPResourcesLoader
+namespace vpe {
+namespace resourcesLoader
 {
   static inline std::vector<char> parseShaderFile(const char* _fileName)
   {
@@ -162,5 +167,7 @@ namespace VPResourcesLoader
 
     return std::make_pair(vertices, indices);
   }
-}
+} // namespace VPResourcesLoader
+} // namespace vpe
+
 #endif

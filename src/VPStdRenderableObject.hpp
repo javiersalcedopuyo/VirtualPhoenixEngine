@@ -3,6 +3,7 @@
 
 #include "VPMaterial.hpp"
 
+namespace vpe {
 struct alignas(32) ModelViewProjNormalUBO
 {
   alignas(16) glm::mat4 modelView;
@@ -11,15 +12,15 @@ struct alignas(32) ModelViewProjNormalUBO
   alignas(16) glm::mat4 normal;
 };
 
-class VPStdRenderableObject
+class StdRenderableObject
 {
-friend class VPRenderer;
+friend class Renderer;
 
 private:
-  VPStdRenderableObject() = delete;
-  VPStdRenderableObject(const glm::mat4&  _model,
+  StdRenderableObject() = delete;
+  StdRenderableObject(const glm::mat4&  _model,
                         const char* _modelPath,
-                        VPMaterial* _pMaterial) :
+                        Material* _pMaterial) :
     m_model(_model),
     m_pMaterial(_pMaterial),
     m_descriptorSet(VK_NULL_HANDLE),
@@ -27,7 +28,7 @@ private:
   {
     auto& bufferManager = VPMemoryBufferManager::getInstance();
 
-    std::tie(m_vertices, m_indices) = VPResourcesLoader::loadModel(_modelPath);
+    std::tie(m_vertices, m_indices) = resourcesLoader::loadModel(_modelPath);
 
     bufferManager.fillBuffer(&m_vertexBuffer,
                              m_vertices.data(),
@@ -61,7 +62,7 @@ public:
   VkDeviceMemory m_uniformBufferMemory;
 
   // Misc
-  VPMaterial*     m_pMaterial; // DOUBT: Should I use shared_ptr instead?
+  Material*     m_pMaterial; // DOUBT: Should I use shared_ptr instead?
   VkDescriptorSet m_descriptorSet;
 
   std::function<void(const float, glm::mat4&)> m_updateCallback;
@@ -78,7 +79,7 @@ public:
                                                       &m_uniformBufferMemory);
   }
 
-  inline void setMaterial(VPMaterial* _newMat) { m_pMaterial = _newMat; }
+  inline void setMaterial(Material* _newMat) { m_pMaterial = _newMat; }
 
   inline void cleanUniformBuffers()
   {
@@ -100,5 +101,5 @@ public:
     m_pMaterial = nullptr; // Not the owner
   }
 };
-
+}
 #endif

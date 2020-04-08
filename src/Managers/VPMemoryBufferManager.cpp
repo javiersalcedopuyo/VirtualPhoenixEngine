@@ -1,5 +1,6 @@
 #include "VPMemoryBufferManager.hpp"
 
+namespace vpe {
 uint32_t VPMemoryBufferManager::findMemoryType(const uint32_t _typeFilter,
                                                const VkMemoryPropertyFlags _properties)
 {
@@ -55,7 +56,7 @@ void VPMemoryBufferManager::copyBuffer(const VkBuffer& _src,
                                              VkBuffer& _dst,
                                        const VkDeviceSize _size)
 {
-  VPCommandBufferManager& commandBufferManager = VPCommandBufferManager::getInstance();
+  CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
 
   // We can't copy to the GPU buffer directly, so we'll use a command buffer
   VkCommandBuffer commandBuffer = commandBufferManager.beginSingleTimeCommand();
@@ -115,4 +116,5 @@ VkDescriptorPool VPMemoryBufferManager::createDescriptorPool(VkDescriptorPoolSiz
     throw std::runtime_error("ERROR: createDescriptorPool - Failed!");
 
   return result;
+}
 }

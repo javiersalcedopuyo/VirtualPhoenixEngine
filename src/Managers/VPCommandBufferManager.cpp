@@ -1,6 +1,8 @@
 #include "VPCommandBufferManager.hpp"
 
-void VPCommandBufferManager::createCommandPool(const uint32_t _queueFamilyIdx)
+namespace vpe
+{
+void CommandBufferManager::createCommandPool(const uint32_t _queueFamilyIdx)
 {
   VkCommandPoolCreateInfo createInfo      = {};
   createInfo.sType                        = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -11,7 +13,7 @@ void VPCommandBufferManager::createCommandPool(const uint32_t _queueFamilyIdx)
     throw std::runtime_error("ERROR: Failed to create command pool");
 }
 
-void VPCommandBufferManager::allocateNCommandBuffers(const uint32_t _num)
+void CommandBufferManager::allocateNCommandBuffers(const uint32_t _num)
 {
   m_commandBuffers.resize(_num);
 
@@ -26,7 +28,7 @@ void VPCommandBufferManager::allocateNCommandBuffers(const uint32_t _num)
     throw std::runtime_error("ERROR: VPCommandBufferManager::allocateNCommandBuffers - Failed!");
 }
 
-void VPCommandBufferManager::beginRecordingCommand(const uint32_t _idx,
+void CommandBufferManager::beginRecordingCommand(const uint32_t _idx,
                                                    const VkCommandBufferUsageFlags _flags)
 {
   if (_idx >= m_commandBuffers.size()) return;
@@ -40,7 +42,7 @@ void VPCommandBufferManager::beginRecordingCommand(const uint32_t _idx,
     throw std::runtime_error("ERROR: VPCommandBufferManager::beginRecordingCommand - Failed!");
 }
 
-void VPCommandBufferManager::endRecordingCommand(const uint32_t _idx)
+void CommandBufferManager::endRecordingCommand(const uint32_t _idx)
 {
   if (_idx >= m_commandBuffers.size()) return;
 
@@ -50,7 +52,7 @@ void VPCommandBufferManager::endRecordingCommand(const uint32_t _idx)
     throw std::runtime_error("ERROR: VPCommandBufferManager::endRecordingCommand - Failed!");
 }
 
-VkCommandBuffer VPCommandBufferManager::beginSingleTimeCommand()
+VkCommandBuffer CommandBufferManager::beginSingleTimeCommand()
 {
   VkCommandBuffer result;
 
@@ -72,12 +74,12 @@ VkCommandBuffer VPCommandBufferManager::beginSingleTimeCommand()
   return result;
 }
 
-void VPCommandBufferManager::endSingleTimeCommand(VkCommandBuffer& _commandBuffer)
+void CommandBufferManager::endSingleTimeCommand(VkCommandBuffer& _commandBuffer)
 {
   endSingleTimeCommand(_commandBuffer, m_pQueue);
 }
 
-void VPCommandBufferManager::endSingleTimeCommand(VkCommandBuffer& _commandBuffer,
+void CommandBufferManager::endSingleTimeCommand(VkCommandBuffer& _commandBuffer,
                                                   VkQueue* _queue)
 {
   vkEndCommandBuffer(_commandBuffer);
@@ -91,4 +93,5 @@ void VPCommandBufferManager::endSingleTimeCommand(VkCommandBuffer& _commandBuffe
   vkQueueWaitIdle(*_queue);
 
   vkFreeCommandBuffers(*m_pLogicalDevice, m_commandPool, 1, &_commandBuffer);
+}
 }

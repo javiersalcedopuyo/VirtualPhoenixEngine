@@ -10,6 +10,7 @@
 
 #include "VPCommandBufferManager.hpp"
 
+namespace vpe {
 class VPMemoryBufferManager
 {
 public:
@@ -63,5 +64,5 @@ private:
     m_pPhysicalDevice = nullptr;
   };
 };
-
+}
 #endif

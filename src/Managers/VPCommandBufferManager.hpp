@@ -5,15 +5,17 @@
 #include <optional>
 #include <vector>
 
-class VPCommandBufferManager
+namespace vpe
+{
+class CommandBufferManager
 {
 public:
-  VPCommandBufferManager(VPCommandBufferManager const&) = delete;
-  void operator=(VPCommandBufferManager const&)         = delete;
+  CommandBufferManager(CommandBufferManager const&) = delete;
+  void operator=(CommandBufferManager const&)         = delete;
 
-  static inline VPCommandBufferManager& getInstance()
+  static inline CommandBufferManager& getInstance()
   {
-    static VPCommandBufferManager instance;
+    static CommandBufferManager instance;
     return instance;
   }
 
@@ -48,8 +50,8 @@ public:
 
 private:
 
-  VPCommandBufferManager() : m_commandPool(VK_NULL_HANDLE), m_pLogicalDevice(nullptr) {};
-  ~VPCommandBufferManager()
+  CommandBufferManager() : m_commandPool(VK_NULL_HANDLE), m_pLogicalDevice(nullptr) {};
+  ~CommandBufferManager()
   {
     if (m_commandPool != VK_NULL_HANDLE) destroyCommandPool();
     m_pLogicalDevice = nullptr;
@@ -62,5 +64,5 @@ private:
   VkDevice* m_pLogicalDevice;
   VkQueue*  m_pQueue; // Implicitly destroyed alongside m_logicalDevice
 };
-
+}
 #endif

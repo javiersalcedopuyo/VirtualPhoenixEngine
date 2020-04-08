@@ -15,11 +15,13 @@ constexpr glm::vec3 RIGHT = glm::vec3( 1.0f,  0.0f,  0.0f);
 constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  0.0f,  1.0f);
 constexpr glm::vec3 BACK  = glm::vec3( 0.0f,  0.0f, -1.0f);
 
-class VPCamera
+namespace vpe
+{
+class Camera
 {
 public:
 
-  VPCamera() :
+  Camera() :
     near(0.1f),
     far(10.0f),
     fieldOfView(glm::radians(45.0f)),
@@ -31,7 +33,7 @@ public:
     init();
   };
 
-  VPCamera(glm::vec3& _pos,  glm::vec3& _forward, glm::vec3& _up,
+  Camera(glm::vec3& _pos,  glm::vec3& _forward, glm::vec3& _up,
            float      _near, float      _far,     float      _fov, float _aspectRatio)
   :
     near(_near),
@@ -45,7 +47,7 @@ public:
     init();
   };
 
-  ~VPCamera() {};
+  ~Camera() {};
 
   inline void setNear(float _near, bool _shouldUpdateProj = true)
   {
@@ -148,5 +150,5 @@ private:
     projection[1][1] *= -1;
   }
 };
-
+}
 #endif

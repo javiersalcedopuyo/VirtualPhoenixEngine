@@ -16,6 +16,7 @@
 
 constexpr uint8_t BINDING_COUNT = 3;
 
+namespace vpe {
 class VPStdRenderPipelineManager
 {
 public:
@@ -44,10 +45,10 @@ public:
     vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
   }
 
-  void createPipeline(const VkExtent2D& _extent, const VPMaterial& _material);
+  void createPipeline(const VkExtent2D& _extent, const Material& _material);
 
   VkShaderModule  createShaderModule(const std::vector<char>& _code);
-  void            createOrUpdateDescriptorSet(VPStdRenderableObject* _obj,
+  void            createOrUpdateDescriptorSet(StdRenderableObject* _obj,
                                               VkBuffer& _lightsUBO,
                                               const size_t _lightCount);
 
@@ -72,7 +73,7 @@ public:
     createLayouts(_lightsCount);
   }
 
-  inline VkPipeline& getOrCreatePipeline(const VkExtent2D& _extent, const VPMaterial& _material)
+  inline VkPipeline& getOrCreatePipeline(const VkExtent2D& _extent, const Material& _material)
   {
     if (m_pipelinePool.count(_material.hash) == 0)
       createPipeline(_extent, _material);
@@ -126,5 +127,5 @@ private:
 
   void createLayouts(const size_t _lightCount);
 };
-
+}
 #endif

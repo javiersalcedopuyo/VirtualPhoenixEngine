@@ -3,21 +3,23 @@
 
 #include "VPCallbacks.hpp"
 
-class VPUserInputController
+namespace vpe
+{
+class UserInputController
 {
 public:
-  VPUserInputController() {};
-  ~VPUserInputController() {};
+  UserInputController() {};
+  ~UserInputController() {};
 
   double* m_pScrollY;
 
-  inline void processInput(VPUserInputContext& _ctx)
+  inline void processInput(UserInputContext& _ctx)
   {
     updateCursorDelta(_ctx.window, _ctx.cursorDelta);
     if (cameraMovementCB) cameraMovementCB(_ctx);
   }
 
-  inline void setCameraMovementCB(std::function<void(VPUserInputContext&)> _cb)
+  inline void setCameraMovementCB(std::function<void(UserInputContext&)> _cb)
   {
     cameraMovementCB = _cb;
   }
@@ -27,7 +29,7 @@ private:
   double lastCursorPositionX;
   double lastCursorPositionY;
 
-  std::function<void(VPUserInputContext&)> cameraMovementCB;
+  std::function<void(UserInputContext&)> cameraMovementCB;
 
   void updateCursorDelta(GLFWwindow* _pWindow, std::array<double,2>& _cursorDelta)
   {
@@ -41,5 +43,5 @@ private:
     lastCursorPositionY = currentCursorY;
   }
 };
-
+}
 #endif

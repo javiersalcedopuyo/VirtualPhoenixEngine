@@ -7,7 +7,9 @@
 
 #include "VPRenderer.hpp"
 
-VPRenderer::VPRenderer() :
+namespace vpe
+{
+Renderer::Renderer() :
   m_pUserInputController(nullptr),
   m_pWindow(nullptr),
   m_pCamera(nullptr),
@@ -16,16 +18,16 @@ VPRenderer::VPRenderer() :
   m_currentFrame(0),
   m_msaaSampleCount(VK_SAMPLE_COUNT_1_BIT)
 {}
-VPRenderer::~VPRenderer() {}
+Renderer::~Renderer() {}
 
-void VPRenderer::init()
+void Renderer::init()
 {
   initWindow();
   initVulkan();
-  m_pUserInputController = new VPUserInputController();
+  m_pUserInputController = new UserInputController();
 }
 
-void VPRenderer::initWindow()
+void Renderer::initWindow()
 {
   glfwInit();
 
@@ -38,16 +40,16 @@ void VPRenderer::initWindow()
   glfwSetFramebufferSizeCallback(m_pWindow, FramebufferResizeCallback);
 }
 
-void VPRenderer::initVulkan()
+void Renderer::initVulkan()
 {
-  m_vkInstance     = VPDeviceManagement::createVulkanInstance( getGLFWRequiredExtensions() );
-  m_debugMessenger = VPDeviceManagement::createDebugMessenger(m_vkInstance);
+  m_vkInstance     = deviceManagement::createVulkanInstance( getGLFWRequiredExtensions() );
+  m_debugMessenger = deviceManagement::createDebugMessenger(m_vkInstance);
 
   createSurface();
 
-  m_physicalDevice       = VPDeviceManagement::getPhysicalDevice(m_vkInstance, m_surface);
-  m_queueFamiliesIndices = VPDeviceManagement::findQueueFamilies(m_physicalDevice, m_surface);
-  m_logicalDevice        = VPDeviceManagement::createLogicalDevice(m_physicalDevice,
+  m_physicalDevice       = deviceManagement::getPhysicalDevice(m_vkInstance, m_surface);
+  m_queueFamiliesIndices = deviceManagement::findQueueFamilies(m_physicalDevice, m_surface);
+  m_logicalDevice        = deviceManagement::createLogicalDevice(m_physicalDevice,
                                                                    m_queueFamiliesIndices);
 
   VkPhysicalDeviceProperties properties{};
@@ -59,7 +61,7 @@ void VPRenderer::initVulkan()
   m_msaaSampleCount = getMaxUsableSampleCount();
 
   VPMemoryBufferManager&  bufferManager        = VPMemoryBufferManager::getInstance();
-  VPCommandBufferManager& commandBufferManager = VPCommandBufferManager::getInstance();
+  CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
 
   commandBufferManager.setLogicalDevice(&m_logicalDevice);
   commandBufferManager.setQueue(&m_graphicsQueue);
@@ -91,24 +93,24 @@ void VPRenderer::initVulkan()
   createSyncObjects();
 }
 
-uint32_t VPRenderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
+uint32_t Renderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
 {
-  m_renderableObjects.push_back(VPStdRenderableObject(_modelMat, _modelPath, m_pMaterials.at(0)));
+  m_renderableObjects.push_back(StdRenderableObject(_modelMat, _modelPath, m_pMaterials.at(0)));
 
   this->recreateSwapChain(); // FIXME: This is overkill
 
   return m_renderableObjects.size() - 1;
 }
 
-void VPRenderer::createSurface()
+void Renderer::createSurface()
 {
   if (glfwCreateWindowSurface(m_vkInstance, m_pWindow, nullptr, &m_surface) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create the surface window.");
 }
 
-void VPRenderer::drawFrame()
+void Renderer::drawFrame()
 {
-  VPCommandBufferManager& commandBufferManager = VPCommandBufferManager::getInstance();
+  CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
   if (commandBufferManager.getCommandBufferCount() == 0) return;
 
   vkWaitForFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
@@ -176,7 +178,7 @@ void VPRenderer::drawFrame()
   m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void VPRenderer::renderLoop()
+void Renderer::renderLoop()
 {
   static auto  startTime   = std::chrono::high_resolution_clock::now();
          auto  currentTime = std::chrono::high_resolution_clock::now();
@@ -184,7 +186,7 @@ void VPRenderer::renderLoop()
   float  moveSpeed   = 10.0f;
   float  rotateSpeed = 10.0f;
 
-  VPUserInputContext userInputCtx{};
+  UserInputContext userInputCtx{};
   userInputCtx.window            = m_pWindow;
   userInputCtx.camera            = m_pCamera;
   userInputCtx.deltaTime         = m_deltaTime;
@@ -214,7 +216,7 @@ void VPRenderer::renderLoop()
 }
 
 // Get the extensions required by GLFW and by the validation layers (if enabled)
-std::vector<const char*> VPRenderer::getGLFWRequiredExtensions()
+std::vector<const char*> Renderer::getGLFWRequiredExtensions()
 {
   uint32_t extensionsCount = 0;
   const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
@@ -227,7 +229,7 @@ std::vector<const char*> VPRenderer::getGLFWRequiredExtensions()
 }
 
 
-VkSurfaceFormatKHR VPRenderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
+VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
 {
   for (const VkSurfaceFormatKHR& format : _availableFormats)
   {
@@ -242,7 +244,7 @@ VkSurfaceFormatKHR VPRenderer::chooseSwapSurfaceFormat(const std::vector<VkSurfa
   return _availableFormats[0];
 }
 
-VkPresentModeKHR VPRenderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes)
+VkPresentModeKHR Renderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes)
 {
   for (const VkPresentModeKHR& mode : _availableModes)
   { // Try to get the Mailbox mode
@@ -253,7 +255,7 @@ VkPresentModeKHR VPRenderer::chooseSwapPresentMode(const std::vector<VkPresentMo
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D VPRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities)
+VkExtent2D Renderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities)
 {
   if (_capabilities.currentExtent.width != UINT32_MAX) return _capabilities.currentExtent;
 
@@ -271,9 +273,9 @@ VkExtent2D VPRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabil
   return result;
 }
 
-void VPRenderer::createSwapChain()
+void Renderer::createSwapChain()
 {
-  VPDeviceManagement::SwapChainDetails_t swapChain = VPDeviceManagement::querySwapChainSupport(m_physicalDevice, m_surface);
+  deviceManagement::SwapChainDetails_t swapChain = deviceManagement::querySwapChainSupport(m_physicalDevice, m_surface);
 
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChain.formats);
   VkPresentModeKHR   presentMode   = chooseSwapPresentMode(swapChain.presentModes);
@@ -327,7 +329,7 @@ void VPRenderer::createSwapChain()
   vkGetSwapchainImagesKHR(m_logicalDevice, m_swapChain, &imageCount, m_swapChainImages.data());
 }
 
-void VPRenderer::cleanUpSwapChain()
+void Renderer::cleanUpSwapChain()
 {
   if (MSAA_ENABLED)
   { // FIXME: Validation layers complain when MSAA is enabled and the window is resized. (Issue #1)
@@ -343,7 +345,7 @@ void VPRenderer::cleanUpSwapChain()
   for (auto& b : m_swapChainFrameBuffers)
     vkDestroyFramebuffer(m_logicalDevice, b, nullptr);
 
-  VPCommandBufferManager::getInstance().freeBuffers();
+  CommandBufferManager::getInstance().freeBuffers();
 
   m_pGraphicsPipelineManager->cleanUp();
   vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
@@ -357,7 +359,7 @@ void VPRenderer::cleanUpSwapChain()
   vkDestroySwapchainKHR(m_logicalDevice, m_swapChain, nullptr);
 }
 
-void VPRenderer::recreateSwapChain()
+void Renderer::recreateSwapChain()
 {
   int width=0, height=0;
   glfwGetFramebufferSize(m_pWindow, &width, &height);
@@ -397,18 +399,18 @@ void VPRenderer::recreateSwapChain()
 }
 
 // Creates an image view for each image in the swap chain.
-void VPRenderer::createImageViews()
+void Renderer::createImageViews()
 {
   m_swapChainImageViews.resize(m_swapChainImages.size());
 
   for (size_t i=0; i<m_swapChainImageViews.size(); ++i)
-    m_swapChainImageViews[i] = VPImage::createImageView(m_swapChainImages[i],
+    m_swapChainImageViews[i] = Image::createImageView(m_swapChainImages[i],
                                                         m_swapChainImageFormat,
                                                         VK_IMAGE_ASPECT_COLOR_BIT,
                                                         1);
 }
 
-void VPRenderer::createRenderPass()
+void Renderer::createRenderPass()
 {
   VkAttachmentDescription colorAttachment = {};
   colorAttachment.format         = m_swapChainImageFormat;
@@ -488,7 +490,7 @@ void VPRenderer::createRenderPass()
     throw std::runtime_error("ERROR: Failed creating render pass!");
 }
 
-void VPRenderer::createGraphicsPipelineManager()
+void Renderer::createGraphicsPipelineManager()
 {
   if (m_pGraphicsPipelineManager != nullptr)
   {
@@ -499,7 +501,7 @@ void VPRenderer::createGraphicsPipelineManager()
   m_pGraphicsPipelineManager = new VPStdRenderPipelineManager(&m_renderPass, m_lights.size());
 }
 
-void VPRenderer::createFrameBuffers()
+void Renderer::createFrameBuffers()
 {
   m_swapChainFrameBuffers.resize(m_swapChainImageViews.size());
 
@@ -533,9 +535,9 @@ void VPRenderer::createFrameBuffers()
   }
 }
 
-void VPRenderer::setupRenderCommands()
+void Renderer::setupRenderCommands()
 {
-  VPCommandBufferManager& commandBufferManager = VPCommandBufferManager::getInstance();
+  CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
 
   std::array<VkClearValue, 2> clearValues = {};
   clearValues[0].color        = CLEAR_COLOR_GREY;
@@ -605,19 +607,19 @@ void VPRenderer::setupRenderCommands()
   }
 }
 
-void VPRenderer::updateScene()
+void Renderer::updateScene()
 {
   //updateLights();
   updateObjects();
 }
 
-void VPRenderer::updateLights()
+void Renderer::updateLights()
 { // TODO:
 }
 
-void VPRenderer::updateObjects()
+void Renderer::updateObjects()
 {
-  if (m_pCamera == nullptr) m_pCamera = new VPCamera();
+  if (m_pCamera == nullptr) m_pCamera = new Camera();
 
   m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
                              static_cast<float>(m_swapChainExtent.height) );
@@ -640,7 +642,7 @@ void VPRenderer::updateObjects()
   }
 }
 
-void VPRenderer::createDepthResources()
+void Renderer::createDepthResources()
 {
   VkFormat format = findDepthFormat();
 
@@ -660,15 +662,15 @@ void VPRenderer::createDepthResources()
   imageInfo.samples           = m_msaaSampleCount;
   imageInfo.flags             = 0;
 
-  VPImage::createImage(imageInfo, m_depthImage, m_depthMemory);
+  Image::createImage(imageInfo, m_depthImage, m_depthMemory);
 
-  m_depthImageView = VPImage::createImageView(m_depthImage,
+  m_depthImageView = Image::createImageView(m_depthImage,
                                               format,
                                               VK_IMAGE_ASPECT_DEPTH_BIT,
                                               1);
 }
 
-VkFormat VPRenderer::findDepthFormat()
+VkFormat Renderer::findDepthFormat()
 {
   return findSupportedFormat
   (
@@ -678,7 +680,7 @@ VkFormat VPRenderer::findDepthFormat()
   );
 }
 
-void VPRenderer::createColorResources()
+void Renderer::createColorResources()
 {
   VkImageCreateInfo imageInfo = {};
   imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -697,16 +699,16 @@ void VPRenderer::createColorResources()
   imageInfo.samples           = m_msaaSampleCount;
   imageInfo.flags             = 0;
 
-  VPImage::createImage(imageInfo, m_colorImage, m_colorImageMemory);
+  Image::createImage(imageInfo, m_colorImage, m_colorImageMemory);
 
-  m_colorImageView = VPImage::createImageView(m_colorImage,
+  m_colorImageView = Image::createImageView(m_colorImage,
                                               m_swapChainImageFormat,
                                               VK_IMAGE_ASPECT_COLOR_BIT,
                                               1);
 }
 
 
-VkFormat VPRenderer::findSupportedFormat(const std::vector<VkFormat>& _candidates,
+VkFormat Renderer::findSupportedFormat(const std::vector<VkFormat>& _candidates,
                                             const VkImageTiling          _tiling,
                                             const VkFormatFeatureFlags   _features)
 {
@@ -728,7 +730,7 @@ VkFormat VPRenderer::findSupportedFormat(const std::vector<VkFormat>& _candidate
 }
 
 
-VkSampleCountFlagBits VPRenderer::getMaxUsableSampleCount()
+VkSampleCountFlagBits Renderer::getMaxUsableSampleCount()
 {
   if (!MSAA_ENABLED) return VK_SAMPLE_COUNT_1_BIT;
 
@@ -748,7 +750,7 @@ VkSampleCountFlagBits VPRenderer::getMaxUsableSampleCount()
   return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void VPRenderer::createSyncObjects()
+void Renderer::createSyncObjects()
 {
   m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
   m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -777,13 +779,13 @@ void VPRenderer::createSyncObjects()
   }
 }
 
-void VPRenderer::cleanUp()
+void Renderer::cleanUp()
 {
   if (m_pCamera != nullptr) delete m_pCamera;
   if (m_pUserInputController != nullptr) delete m_pUserInputController;
 
   if (ENABLE_VALIDATION_LAYERS)
-    VPDeviceManagement::destroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
+    deviceManagement::destroyDebugUtilsMessengerEXT(m_vkInstance, m_debugMessenger, nullptr);
 
   for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; ++i)
   {
@@ -795,17 +797,18 @@ void VPRenderer::cleanUp()
   cleanUpSwapChain();
 
   for (auto& obj : m_renderableObjects) obj.cleanUp();
-  for (auto& mat : m_pMaterials) delete mat;
+  for (auto  mat : m_pMaterials) delete mat;
   vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
   vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
 
   delete m_pGraphicsPipelineManager;
 
-  VPCommandBufferManager::getInstance().destroyCommandPool();
+  CommandBufferManager::getInstance().destroyCommandPool();
 
   vkDestroyDevice(m_logicalDevice, nullptr);
   vkDestroySurfaceKHR(m_vkInstance, m_surface, nullptr);
   vkDestroyInstance(m_vkInstance, nullptr);
   glfwDestroyWindow(m_pWindow);
   glfwTerminate();
+}
 }

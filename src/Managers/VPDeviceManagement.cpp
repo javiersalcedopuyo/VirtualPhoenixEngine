@@ -1,6 +1,7 @@
 #include "VPDeviceManagement.hpp"
 
-namespace VPDeviceManagement
+namespace vpe {
+namespace deviceManagement
 {
   static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
       VkDebugUtilsMessageSeverityFlagBitsEXT _messageSeverity,
@@ -336,4 +337,5 @@ namespace VPDeviceManagement
     _createInfo.pfnUserCallback = DebugCallback;
     _createInfo.pUserData       = nullptr;
   }
+}
 }

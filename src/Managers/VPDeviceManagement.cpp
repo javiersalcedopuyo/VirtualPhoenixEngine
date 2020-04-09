@@ -302,6 +302,26 @@ namespace deviceManagement
     return result;
   }
 
+  VkSampleCountFlagBits getMaxUsableSampleCount(const VkPhysicalDevice& _physicalDevice)
+  {
+    if (!MSAA_ENABLED) return VK_SAMPLE_COUNT_1_BIT;
+
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(_physicalDevice, &properties);
+
+    VkSampleCountFlags countFlags = std::min(properties.limits.framebufferColorSampleCounts,
+                                            properties.limits.framebufferDepthSampleCounts);
+
+    if (countFlags & VK_SAMPLE_COUNT_64_BIT) return VK_SAMPLE_COUNT_64_BIT;
+    if (countFlags & VK_SAMPLE_COUNT_32_BIT) return VK_SAMPLE_COUNT_32_BIT;
+    if (countFlags & VK_SAMPLE_COUNT_16_BIT) return VK_SAMPLE_COUNT_16_BIT;
+    if (countFlags & VK_SAMPLE_COUNT_8_BIT ) return VK_SAMPLE_COUNT_8_BIT;
+    if (countFlags & VK_SAMPLE_COUNT_4_BIT ) return VK_SAMPLE_COUNT_4_BIT;
+    if (countFlags & VK_SAMPLE_COUNT_2_BIT ) return VK_SAMPLE_COUNT_2_BIT;
+
+    return VK_SAMPLE_COUNT_1_BIT;
+  }
+
   VkDebugUtilsMessengerEXT createDebugMessenger(const VkInstance& _instance)
   {
     if (!ENABLE_VALIDATION_LAYERS) return VK_NULL_HANDLE;

@@ -31,8 +31,7 @@ struct Material
 
   ~Material() { cleanUp(); }
 
-  size_t   hash;
-  uint32_t mipLevels;
+  size_t hash;
 
   std::vector<char> vertShaderCode;
   std::vector<char> fragShaderCode;

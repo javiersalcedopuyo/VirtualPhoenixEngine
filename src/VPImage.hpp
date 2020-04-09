@@ -10,6 +10,20 @@
 
 namespace vpe
 {
+void createVkImage(const VkImageCreateInfo& _info, VkDeviceMemory& _imageMemory, VkImage* _pImage);
+
+void createImageView(const VkImage&           _image,
+                     const VkFormat&          _format,
+                     const VkImageAspectFlags _aspectFlags,
+                     const uint32_t           _mipLevels,
+                     VkImageView*             _pImageView);
+
+void transitionLayout(const VkImage&       _image,
+                      const VkFormat       _format,
+                      const VkImageLayout& _oldLayout,
+                      const VkImageLayout& _newLayout,
+                      const uint32_t       _mipLevels=1);
+
 class Image
 {
 public:
@@ -44,21 +58,6 @@ public:
 
   void createFromFile(const char* _path);
 
-  static void createVkImage(const VkImageCreateInfo& _info,
-                          VkImage&                 _image,
-                          VkDeviceMemory&          _imageMemory);
-
-  static VkImageView createImageView(const VkImage&           _image,
-                                     const VkFormat&          _format,
-                                     const VkImageAspectFlags _aspectFlags,
-                                     const uint32_t           _mipLevels);
-
-  static void transitionLayout(const VkImage&       _image,
-                               const VkFormat       _format,
-                               const VkImageLayout& _oldLayout,
-                               const VkImageLayout& _newLayout,
-                               const uint32_t       _mipLevels=1);
-
   inline VkImageView& getImageView() { return m_imageView; }
   inline VkSampler&   getSampler()   { return m_sampler; }
 
@@ -75,14 +74,13 @@ public:
 
 private:
 
-  bool m_needsSampler; // In cases like depth images, we don't need a sampler
+  bool           m_needsSampler; // In cases like depth images, we don't need a sampler
+  VkImage        m_image;
+  VkDeviceMemory m_memory;
+  VkImageView    m_imageView;
+  VkSampler      m_sampler;
 
-  VkImage                  m_image;
-  VkDeviceMemory           m_memory;
-  VkImageView              m_imageView;
-  VkSampler                m_sampler;
-
-  void createImageSampler(const uint32_t _mipLevels);
+  void createImageSampler(const uint32_t _mipLevels, VkSampler* _pSampler);
 
   void copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,
                          const uint32_t  _width,  const uint32_t height);

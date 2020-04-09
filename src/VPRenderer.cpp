@@ -22,8 +22,8 @@ Renderer::~Renderer() {}
 
 void Renderer::init()
 {
-  initWindow();
-  initVulkan();
+  this->initWindow();
+  this->initVulkan();
   m_pUserInputController = new UserInputController();
 }
 
@@ -45,7 +45,7 @@ void Renderer::initVulkan()
   m_vkInstance     = deviceManagement::createVulkanInstance( getGLFWRequiredExtensions() );
   m_debugMessenger = deviceManagement::createDebugMessenger(m_vkInstance);
 
-  createSurface();
+  this->createSurface();
 
   m_physicalDevice       = deviceManagement::getPhysicalDevice(m_vkInstance, m_surface);
   m_queueFamiliesIndices = deviceManagement::findQueueFamilies(m_physicalDevice, m_surface);
@@ -58,7 +58,7 @@ void Renderer::initVulkan()
   vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
   vkGetDeviceQueue(m_logicalDevice, m_queueFamiliesIndices.presentFamily.value(), 0, &m_presentQueue);
 
-  m_msaaSampleCount = getMaxUsableSampleCount();
+  m_msaaSampleCount = deviceManagement::getMaxUsableSampleCount(m_physicalDevice);
 
   MemoryBufferManager&  bufferManager        = MemoryBufferManager::getInstance();
   CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
@@ -70,17 +70,17 @@ void Renderer::initVulkan()
 
   commandBufferManager.createCommandPool(m_queueFamiliesIndices.graphicsFamily.value());
 
-  createSwapChain();
-  createImageViews();
-  createRenderPass();
+  this->createSwapChain();
+  this->createImageViews();
+  this->createRenderPass();
 
   // Create the default Material and Pipeline
-  createGraphicsPipelineManager();
-  createMaterial(DEFAULT_VERT, DEFAULT_FRAG, DEFAULT_TEX);
+  this->createGraphicsPipelineManager();
+  this->createMaterial(DEFAULT_VERT, DEFAULT_FRAG, DEFAULT_TEX);
 
-  if (MSAA_ENABLED) createColorResources();
-  createDepthResources();
-  createFrameBuffers();
+  if (MSAA_ENABLED) this->createColorResources();
+  this->createDepthResources();
+  this->createFrameBuffers();
 
   MemoryBufferManager::getInstance().createBuffer(sizeof(LightUBO),
                                                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -89,13 +89,13 @@ void Renderer::initVulkan()
                                                   &m_lightsUBO,
                                                   &m_lightsUBOMemory);
 
-  setupRenderCommands();
-  createSyncObjects();
+  this->setupRenderCommands();
+  this->createSyncObjects();
 }
 
 uint32_t Renderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
 {
-  if (m_pMeshes.count(_modelPath) == 0) addMesh(_modelPath);
+  if (m_pMeshes.count(_modelPath) == 0) this->addMesh(_modelPath);
 
   m_renderableObjects.push_back( StdRenderableObject(_modelMat,
                                                      m_pMeshes.at(_modelPath),
@@ -129,7 +129,7 @@ void Renderer::drawFrame()
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR)
   {
-    recreateSwapChain();
+    this->recreateSwapChain();
     return;
   }
   else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
@@ -146,7 +146,7 @@ void Renderer::drawFrame()
   VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-  updateScene();
+  this->updateScene();
 
   VkSubmitInfo submitInfo{};
   submitInfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -176,7 +176,7 @@ void Renderer::drawFrame()
   result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_frameBufferResized)
   {
-    recreateSwapChain();
+    this->recreateSwapChain();
     m_frameBufferResized = false;
   }
   else if (result != VK_SUCCESS)
@@ -215,7 +215,7 @@ void Renderer::renderLoop()
     userInputCtx.scrollY = *m_pUserInputController->m_pScrollY;
     m_pUserInputController->processInput(userInputCtx);
 
-    drawFrame();
+    this->drawFrame();
   }
 
   // Wait until all drawing operations have finished before cleaning up
@@ -235,32 +235,6 @@ std::vector<const char*> Renderer::getGLFWRequiredExtensions()
   return extensions;
 }
 
-
-VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
-{
-  for (const VkSurfaceFormatKHR& format : _availableFormats)
-  {
-    // We'll use sRGB as color space and RGBA as color format
-    if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
-        format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-    {
-      return format;
-    }
-  }
-
-  return _availableFormats[0];
-}
-
-VkPresentModeKHR Renderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes)
-{
-  for (const VkPresentModeKHR& mode : _availableModes)
-  { // Try to get the Mailbox mode
-    if (mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
-  }
-
-  // The only guaranteed mode is FIFO
-  return VK_PRESENT_MODE_FIFO_KHR;
-}
 
 VkExtent2D Renderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities)
 {
@@ -286,7 +260,7 @@ void Renderer::createSwapChain()
 
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChain.formats);
   VkPresentModeKHR   presentMode   = chooseSwapPresentMode(swapChain.presentModes);
-  VkExtent2D         extent        = chooseSwapExtent(swapChain.capabilities);
+  VkExtent2D         extent        = this->chooseSwapExtent(swapChain.capabilities);
 
   m_swapChainExtent      = extent;
   m_swapChainImageFormat = surfaceFormat.format;
@@ -378,15 +352,15 @@ void Renderer::recreateSwapChain()
 
   vkDeviceWaitIdle(m_logicalDevice);
 
-  cleanUpSwapChain();
+  this->cleanUpSwapChain();
 
-  createSwapChain();
-  createImageViews();
-  createRenderPass();
+  this->createSwapChain();
+  this->createImageViews();
+  this->createRenderPass();
 
-  if (MSAA_ENABLED) createColorResources();
-  createDepthResources();
-  createFrameBuffers();
+  if (MSAA_ENABLED) this->createColorResources();
+  this->createDepthResources();
+  this->createFrameBuffers();
 
   m_pGraphicsPipelineManager->createDescriptorPool(m_renderableObjects.size(),
                                                    m_lights.size() * m_renderableObjects.size(),
@@ -402,7 +376,7 @@ void Renderer::recreateSwapChain()
     m_pGraphicsPipelineManager->createOrUpdateDescriptorSet(&object, m_lightsUBO, m_lights.size());
   }
 
-  setupRenderCommands();
+  this->setupRenderCommands();
 }
 
 // Creates an image view for each image in the swap chain.
@@ -411,10 +385,11 @@ void Renderer::createImageViews()
   m_swapChainImageViews.resize(m_swapChainImages.size());
 
   for (size_t i=0; i<m_swapChainImageViews.size(); ++i)
-    m_swapChainImageViews.at(i) = Image::createImageView(m_swapChainImages.at(i),
-                                                         m_swapChainImageFormat,
-                                                         VK_IMAGE_ASPECT_COLOR_BIT,
-                                                         1);
+    createImageView(m_swapChainImages.at(i),
+                    m_swapChainImageFormat,
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    1,
+                    &m_swapChainImageViews.at(i));
 }
 
 void Renderer::createRenderPass()
@@ -431,7 +406,7 @@ void Renderer::createRenderPass()
                                                 : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
   VkAttachmentDescription depthAttachment{};
-  depthAttachment.format         = findDepthFormat();
+  depthAttachment.format         = this->findDepthFormat();
   depthAttachment.samples        = m_msaaSampleCount;
   depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -617,7 +592,7 @@ void Renderer::setupRenderCommands()
 void Renderer::updateScene()
 {
   //updateLights();
-  updateObjects();
+  this->updateObjects();
 }
 
 void Renderer::updateLights()
@@ -651,7 +626,7 @@ void Renderer::updateObjects()
 
 void Renderer::createDepthResources()
 {
-  VkFormat format = findDepthFormat();
+  VkFormat format = this->findDepthFormat();
 
   VkImageCreateInfo imageInfo{};
   imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -669,17 +644,13 @@ void Renderer::createDepthResources()
   imageInfo.samples       = m_msaaSampleCount;
   imageInfo.flags         = 0;
 
-  Image::createVkImage(imageInfo, m_depthImage, m_depthMemory);
-
-  m_depthImageView = Image::createImageView(m_depthImage,
-                                            format,
-                                            VK_IMAGE_ASPECT_DEPTH_BIT,
-                                            1);
+  createVkImage(imageInfo, m_depthMemory, &m_depthImage);
+  createImageView(m_depthImage, format, VK_IMAGE_ASPECT_DEPTH_BIT, 1, &m_depthImageView);
 }
 
 VkFormat Renderer::findDepthFormat()
 {
-  return findSupportedFormat
+  return this->findSupportedFormat
   (
     {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
     VK_IMAGE_TILING_OPTIMAL,
@@ -706,18 +677,18 @@ void Renderer::createColorResources()
   imageInfo.samples       = m_msaaSampleCount;
   imageInfo.flags         = 0;
 
-  Image::createVkImage(imageInfo, m_colorImage, m_colorImageMemory);
-
-  m_colorImageView = Image::createImageView(m_colorImage,
-                                              m_swapChainImageFormat,
-                                              VK_IMAGE_ASPECT_COLOR_BIT,
-                                              1);
+  createVkImage(imageInfo, m_colorImageMemory, &m_colorImage);
+  createImageView(m_colorImage,
+                  m_swapChainImageFormat,
+                  VK_IMAGE_ASPECT_COLOR_BIT,
+                  1,
+                  &m_colorImageView);
 }
 
 
 VkFormat Renderer::findSupportedFormat(const std::vector<VkFormat>& _candidates,
-                                            const VkImageTiling          _tiling,
-                                            const VkFormatFeatureFlags   _features)
+                                       const VkImageTiling          _tiling,
+                                       const VkFormatFeatureFlags   _features)
 {
   for (const VkFormat& candidate : _candidates)
   {
@@ -734,27 +705,6 @@ VkFormat Renderer::findSupportedFormat(const std::vector<VkFormat>& _candidates,
   }
 
   throw std::runtime_error("ERROR: findSupportedFormat - Failed!");
-}
-
-
-VkSampleCountFlagBits Renderer::getMaxUsableSampleCount()
-{
-  if (!MSAA_ENABLED) return VK_SAMPLE_COUNT_1_BIT;
-
-  VkPhysicalDeviceProperties properties{};
-  vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
-
-  VkSampleCountFlags countFlags = std::min(properties.limits.framebufferColorSampleCounts,
-                                           properties.limits.framebufferDepthSampleCounts);
-
-  if (countFlags & VK_SAMPLE_COUNT_64_BIT) return VK_SAMPLE_COUNT_64_BIT;
-  if (countFlags & VK_SAMPLE_COUNT_32_BIT) return VK_SAMPLE_COUNT_32_BIT;
-  if (countFlags & VK_SAMPLE_COUNT_16_BIT) return VK_SAMPLE_COUNT_16_BIT;
-  if (countFlags & VK_SAMPLE_COUNT_8_BIT ) return VK_SAMPLE_COUNT_8_BIT;
-  if (countFlags & VK_SAMPLE_COUNT_4_BIT ) return VK_SAMPLE_COUNT_4_BIT;
-  if (countFlags & VK_SAMPLE_COUNT_2_BIT ) return VK_SAMPLE_COUNT_2_BIT;
-
-  return VK_SAMPLE_COUNT_1_BIT;
 }
 
 void Renderer::createSyncObjects()
@@ -801,7 +751,7 @@ void Renderer::cleanUp()
     vkDestroyFence(m_logicalDevice, m_inFlightFences.at(i), nullptr);
   }
 
-  cleanUpSwapChain();
+  this->cleanUpSwapChain();
 
   for (auto& obj         : m_renderableObjects) obj.cleanUp();
   for (auto  pathAndMesh : m_pMeshes)           delete pathAndMesh.second;

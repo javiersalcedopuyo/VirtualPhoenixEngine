@@ -3,19 +3,17 @@
 
 namespace vpe
 {
-void Image::createVkImage(const VkImageCreateInfo& _info,
-                        VkImage&                 _image,
-                        VkDeviceMemory&          _imageMemory)
+void createVkImage(const VkImageCreateInfo& _info, VkDeviceMemory& _imageMemory, VkImage* _pImage)
 {
   MemoryBufferManager& bufferManager = MemoryBufferManager::getInstance();
   const VkDevice&        logicalDevice = *bufferManager.m_pLogicalDevice;
 
-  if (vkCreateImage(logicalDevice, &_info, nullptr, &_image) != VK_SUCCESS)
+  if (vkCreateImage(logicalDevice, &_info, nullptr, _pImage) != VK_SUCCESS)
     throw std::runtime_error("ERROR: createImage - Failed!");
 
   // Allocate memory for the image
   VkMemoryRequirements memoryReq;
-  vkGetImageMemoryRequirements(logicalDevice, _image, &memoryReq);
+  vkGetImageMemoryRequirements(logicalDevice, *_pImage, &memoryReq);
 
   const uint32_t memoryType = bufferManager.findMemoryType(memoryReq.memoryTypeBits,
                                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -28,17 +26,16 @@ void Image::createVkImage(const VkImageCreateInfo& _info,
   if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &_imageMemory) != VK_SUCCESS)
     throw std::runtime_error("ERROR: createImage - Failed to allocate image memory!");
 
-  vkBindImageMemory(logicalDevice, _image, _imageMemory, 0);
+  vkBindImageMemory(logicalDevice, *_pImage, _imageMemory, 0);
 }
 
-VkImageView Image::createImageView(const VkImage&           _image,
-                                   const VkFormat&          _format,
-                                   const VkImageAspectFlags _aspectFlags,
-                                   const uint32_t           _mipLevels)
+void createImageView(const VkImage&           _image,
+                     const VkFormat&          _format,
+                     const VkImageAspectFlags _aspectFlags,
+                     const uint32_t           _mipLevels,
+                     VkImageView*             _pImageView)
 {
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-
-  VkImageView result;
 
   VkImageViewCreateInfo createInfo{};
   createInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -57,13 +54,11 @@ VkImageView Image::createImageView(const VkImage&           _image,
   createInfo.subresourceRange.baseArrayLayer = 0;
   createInfo.subresourceRange.layerCount     = 1; // >1 for cases like VR
 
-  if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &result) != VK_SUCCESS)
+  if (vkCreateImageView(logicalDevice, &createInfo, nullptr, _pImageView) != VK_SUCCESS)
     throw std::runtime_error("ERROR: VPImage::createImageView - Failed!");
-
-  return result;
 }
 
-void Image::createImageSampler(const uint32_t _mipLevels)
+void Image::createImageSampler(const uint32_t _mipLevels, VkSampler* _pSampler)
 {
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -85,15 +80,15 @@ void Image::createImageSampler(const uint32_t _mipLevels)
   samplerInfo.minLod                  = 0.0f;
   samplerInfo.maxLod                  = _mipLevels;
 
-  if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS)
+  if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr, _pSampler) != VK_SUCCESS)
     throw std::runtime_error("ERROR: createTextureSampler - Failed!");
 }
 
-void Image::transitionLayout(const VkImage&       _image,
-                             const VkFormat       _format,
-                             const VkImageLayout& _oldLayout,
-                             const VkImageLayout& _newLayout,
-                             const uint32_t       _mipLevels)
+void transitionLayout(const VkImage&       _image,
+                      const VkFormat       _format,
+                      const VkImageLayout& _oldLayout,
+                      const VkImageLayout& _newLayout,
+                      const uint32_t       _mipLevels)
 {
   VkPipelineStageFlags srcStage;
   VkPipelineStageFlags dstStage;
@@ -197,7 +192,7 @@ void Image::createFromFile(const char* _path)
   imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.flags         = 0;
 
-  createVkImage(imageInfo, m_image, m_memory);
+  createVkImage(imageInfo, m_memory, &m_image);
 
   transitionLayout(m_image,
                    imageData.format,
@@ -213,12 +208,13 @@ void Image::createFromFile(const char* _path)
   // Implicitly transitioned into SHADER_READ_ONLY_OPTIMAL
   generateMipMaps(m_image, imageData.format, imageData.width, imageData.heigth, imageData.mipLevels);
 
-  m_imageView = createImageView(m_image,
-                                imageData.format,
-                                VK_IMAGE_ASPECT_COLOR_BIT,
-                                imageData.mipLevels);
+  createImageView(m_image,
+                  imageData.format,
+                  VK_IMAGE_ASPECT_COLOR_BIT,
+                  imageData.mipLevels,
+                  &m_imageView);
 
-  if (m_needsSampler) createImageSampler(imageData.mipLevels);
+  if (m_needsSampler) createImageSampler(imageData.mipLevels, &m_sampler);
 }
 
 void Image::copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,

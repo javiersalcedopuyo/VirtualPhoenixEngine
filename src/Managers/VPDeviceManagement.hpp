@@ -16,6 +16,9 @@ namespace vpe
   constexpr bool ENABLE_VALIDATION_LAYERS = true;
 #endif
 
+// TODO: Make it toggleable
+constexpr bool MSAA_ENABLED = false;
+
 namespace deviceManagement
 {
   const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
@@ -69,6 +72,8 @@ namespace deviceManagement
   void destroyDebugUtilsMessengerEXT(VkInstance instance,
                                      VkDebugUtilsMessengerEXT debugMessenger,
                                      const VkAllocationCallbacks* pAllocator);
+
+  VkSampleCountFlagBits getMaxUsableSampleCount(const VkPhysicalDevice& _physicalDevice);
 }
 }
 #endif

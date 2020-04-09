@@ -37,9 +37,6 @@
 
 namespace vpe
 {
-// TODO: Make it toggleable
-constexpr bool MSAA_ENABLED = false;
-
 constexpr int WIDTH  = 800;
 constexpr int HEIGTH = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -49,6 +46,38 @@ constexpr uint32_t DEFAULT_MATERIAL_IDX = 0;
 constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
 constexpr VkClearColorValue CLEAR_COLOR_SKY   = {0.53f, 0.81f, 0.92f, 1.0f};
+
+inline VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
+{
+  VkSurfaceFormatKHR result = _availableFormats[0];
+
+  for (const auto& format : _availableFormats)
+  {
+    if (format.format     == VK_FORMAT_B8G8R8A8_UNORM &&
+        format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+    {
+      result = format;
+      break;
+    }
+  }
+  return result;
+}
+
+inline VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes)
+{
+  // The only guaranteed mode is FIFO
+  VkPresentModeKHR result = VK_PRESENT_MODE_FIFO_KHR;
+
+  for (const auto& mode : _availableModes)
+  {
+    if (mode == VK_PRESENT_MODE_MAILBOX_KHR)
+    {
+      result = mode;
+      break;
+    }
+  }
+  return result;
+}
 
 class Renderer
 {
@@ -83,7 +112,7 @@ public:
     for (auto& light : m_lights)
       bufferManager.copyToBufferMemory(&light.ubo, m_lightsUBOMemory, uboSize, uboSize * light.idx);
 
-    recreateSwapChain();
+    this->recreateSwapChain(); // FIXME: Overkill
 
     return idx;
   }
@@ -119,7 +148,7 @@ public:
     if (m_pCamera == nullptr)
     {
       m_pCamera = new Camera(_position, _forward, _up,
-                              _near,     _far,     _fov, 1.0f);
+                             _near,     _far,     _fov, 1.0f);
     }
     else
     {
@@ -135,8 +164,9 @@ public:
   inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
   {
     if (_objIdx >= m_renderableObjects.size()) return;
+
     m_renderableObjects.at(_objIdx).setMaterial( m_pMaterials.at(_matIdx) );
-    recreateSwapChain(); // FIXME: This is overkill
+    this->recreateSwapChain(); // FIXME: This is overkill
   }
 
   inline void setObjUpdateCB(const uint32_t _objIdx,
@@ -208,13 +238,11 @@ private:
   std::vector<const char*> getGLFWRequiredExtensions();
 
   // Swapchain
-  VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats);
-  VkPresentModeKHR   chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& _availableModes);
-  VkExtent2D         chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
-  void               createSwapChain();
-  void               cleanUpSwapChain();
-  void               recreateSwapChain();
-  void               createImageViews();
+  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& _capabilities);
+  void       createSwapChain();
+  void       cleanUpSwapChain();
+  void       recreateSwapChain();
+  void       createImageViews();
 
   // Pipeline
   void createRenderPass();
@@ -246,8 +274,6 @@ private:
     return _format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
            _format == VK_FORMAT_D24_UNORM_S8_UINT;
   }
-
-  VkSampleCountFlagBits getMaxUsableSampleCount();
 
   uint32_t findMemoryType(const uint32_t              _typeFilter,
                           const VkMemoryPropertyFlags _properties);

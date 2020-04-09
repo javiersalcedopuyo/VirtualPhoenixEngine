@@ -53,7 +53,7 @@ public:
 
   inline void cleanUp()
   {
-    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
     vkDestroySampler(logicalDevice, m_sampler, nullptr);
 

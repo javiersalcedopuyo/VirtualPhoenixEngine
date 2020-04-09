@@ -51,63 +51,62 @@ namespace deviceManagement
     VkInstance result = VK_NULL_HANDLE;
 
     // Optional but useful info for the driver to optimize.
-    VkApplicationInfo appInfo  = {};
+    VkApplicationInfo appInfo{};
     appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName   = "Phoenix Renderer";
     appInfo.applicationVersion = VK_MAKE_VERSION(0,0,1);
     appInfo.pEngineName        = "Phoenix Renderer";
     appInfo.apiVersion         = VK_API_VERSION_1_0;
 
-    VkInstanceCreateInfo createInfo     = {};
-    createInfo.sType                    = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo         = &appInfo;
-    createInfo.enabledExtensionCount    = static_cast<uint32_t>(_extensions.size());
-    createInfo.ppEnabledExtensionNames  = _extensions.data();
+    VkInstanceCreateInfo createInfo{};
+    createInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    createInfo.pApplicationInfo        = &appInfo;
+    createInfo.enabledExtensionCount   = _extensions.size();
+    createInfo.ppEnabledExtensionNames = _extensions.data();
     if (ENABLE_VALIDATION_LAYERS)
     {
-      createInfo.enabledLayerCount      = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-      createInfo.ppEnabledLayerNames    = VALIDATION_LAYERS.data();
+      createInfo.enabledLayerCount     = VALIDATION_LAYERS.size();
+      createInfo.ppEnabledLayerNames   = VALIDATION_LAYERS.data();
     }
-    else createInfo.enabledLayerCount   = 0;
+    else
+      createInfo.enabledLayerCount     = 0;
 
     // Additional debug messenger to use during the instance creation and destruction
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if (ENABLE_VALIDATION_LAYERS)
     {
-      createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-      createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
+      createInfo.enabledLayerCount     = VALIDATION_LAYERS.size();
+      createInfo.ppEnabledLayerNames   = VALIDATION_LAYERS.data();
 
       populateDebugMessenger(debugCreateInfo);
       createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugCreateInfo);
     }
     else
     {
-      createInfo.enabledLayerCount = 0;
-      createInfo.pNext = nullptr;
+      createInfo.enabledLayerCount     = 0;
+      createInfo.pNext                 = nullptr;
     }
 
     if (vkCreateInstance(&createInfo, nullptr, &result) != VK_SUCCESS)
-    {
       throw std::runtime_error("ERROR: Failed to create Vulkan instance.");
-    }
 
     return result;
   }
 
   VkDevice createLogicalDevice(const VkPhysicalDevice& _physicalDevice,
-                              const QueueFamilyIndices_t& _queueFamilyIndices)
+                               const QueueFamilyIndices_t& _queueFamilyIndices)
   {
     VkDevice result        = VK_NULL_HANDLE;
     float    queuePriority = 1.0;
 
     // How many queues we want for a single family (for now just one with graphics capabilities)
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos = {};
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
     std::set<uint32_t> uniqueQueueFamilies = {_queueFamilyIndices.graphicsFamily.value(),
                                               _queueFamilyIndices.presentFamily.value()};
 
     for(uint32_t queueFamily : uniqueQueueFamilies)
     {
-      VkDeviceQueueCreateInfo queueCreateInfo = {};
+      VkDeviceQueueCreateInfo queueCreateInfo{};
       queueCreateInfo.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
       queueCreateInfo.queueFamilyIndex = queueFamily;
       queueCreateInfo.queueCount       = 1; // TODO: Avoid magic numbers
@@ -163,7 +162,7 @@ namespace deviceManagement
       if (isDeviceSuitable(device, _surface))
       { // For now, just take the 1st suitable device we find.
         // TODO: Rate all available and select accordingly
-        result  = device;
+        result = device;
         break;
       }
     }
@@ -196,8 +195,8 @@ namespace deviceManagement
       throw std::runtime_error("ERROR: VPDeviceManagement::idDeviceSuitable - Not all extensions supported");
 
     return features.samplerAnisotropy &&
-            swapChainSupported &&
-            queueFamiliesIndices.isComplete();
+           swapChainSupported &&
+           queueFamiliesIndices.isComplete();
     // For some reason, my Nvidia GTX960m is not recognized as a discrete GPU :/
     //  primusrun might be masking the GPU as an integrated
     //     && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
@@ -243,12 +242,8 @@ namespace deviceManagement
     for (const char* extensionName : DEVICE_EXTENSIONS)
     {
       for (const VkExtensionProperties extension : availableExtensions)
-      {
         if (!strcmp(extensionName, extension.extensionName))
-        {
           ++extensionCount;
-        }
-      }
     }
 
     return extensionCount == DEVICE_EXTENSIONS.size();
@@ -282,7 +277,7 @@ namespace deviceManagement
   }
 
   SwapChainDetails_t querySwapChainSupport(const VkPhysicalDevice& _device,
-                                          const VkSurfaceKHR& _surface)
+                                           const VkSurfaceKHR& _surface)
   {
     SwapChainDetails_t result{};
 
@@ -321,7 +316,6 @@ namespace deviceManagement
 
     return result;
   }
-
 
   void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& _createInfo)
   {

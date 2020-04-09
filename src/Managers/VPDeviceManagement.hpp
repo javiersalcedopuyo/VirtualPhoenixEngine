@@ -1,12 +1,6 @@
 #ifndef VP_DEVICE_MANAGEMENT_HPP
 #define VP_DEVICE_MANAGEMENT_HPP
 
-#ifdef NDEBUG
-  constexpr bool ENABLE_VALIDATION_LAYERS = false;
-#else
-  constexpr bool ENABLE_VALIDATION_LAYERS = true;
-#endif
-
 #include <vulkan/vulkan.h>
 
 #include <iostream>
@@ -14,7 +8,14 @@
 #include <set>
 #include <vector>
 
-namespace vpe {
+namespace vpe
+{
+#ifdef NDEBUG
+  constexpr bool ENABLE_VALIDATION_LAYERS = false;
+#else
+  constexpr bool ENABLE_VALIDATION_LAYERS = true;
+#endif
+
 namespace deviceManagement
 {
   const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
@@ -48,26 +49,26 @@ namespace deviceManagement
 
   VkDebugUtilsMessengerEXT createDebugMessenger(const VkInstance& _instance);
 
-  VkPhysicalDevice     getPhysicalDevice(const VkInstance& _vkInstance,
-                                         const VkSurfaceKHR& _surface);
+  VkPhysicalDevice getPhysicalDevice(const VkInstance& _vkInstance,
+                                     const VkSurfaceKHR& _surface);
 
-  VkDevice             createLogicalDevice(const VkPhysicalDevice& _physicalDevice,
-                                           const QueueFamilyIndices_t& _queueFamilyIndices);
+  VkDevice createLogicalDevice(const VkPhysicalDevice& _physicalDevice,
+                               const QueueFamilyIndices_t& _queueFamilyIndices);
 
   QueueFamilyIndices_t findQueueFamilies(const VkPhysicalDevice& _device,
                                          const VkSurfaceKHR& _surface);
 
-  SwapChainDetails_t   querySwapChainSupport(const VkPhysicalDevice& _device,
-                                             const VkSurfaceKHR& _surface);
+  SwapChainDetails_t querySwapChainSupport(const VkPhysicalDevice& _device,
+                                           const VkSurfaceKHR& _surface);
 
   VkResult createDebugUtilsMessengerEXT(VkInstance instance,
                                         const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                         const VkAllocationCallbacks* pAllocator,
                                         VkDebugUtilsMessengerEXT* pDebugMessenger);
 
-  void     destroyDebugUtilsMessengerEXT(VkInstance instance,
-                                         VkDebugUtilsMessengerEXT debugMessenger,
-                                         const VkAllocationCallbacks* pAllocator);
+  void destroyDebugUtilsMessengerEXT(VkInstance instance,
+                                     VkDebugUtilsMessengerEXT debugMessenger,
+                                     const VkAllocationCallbacks* pAllocator);
 }
 }
 #endif

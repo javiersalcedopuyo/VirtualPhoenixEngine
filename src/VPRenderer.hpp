@@ -74,7 +74,7 @@ public:
     vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
     vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
 
-    auto& bufferManager = VPMemoryBufferManager::getInstance();
+    auto& bufferManager = MemoryBufferManager::getInstance();
     bufferManager.createBuffer(uboSize * m_lights.size(),
                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -142,17 +142,17 @@ public:
   }
 
 private:
-  GLFWwindow*            m_pWindow;
-  VkSurfaceKHR           m_surface;
-  Camera*              m_pCamera; // TODO: Multi-camera
+  GLFWwindow*  m_pWindow;
+  VkSurfaceKHR m_surface;
+  Camera*      m_pCamera; // TODO: Multi-camera
 
   float m_deltaTime;
 
-  VkInstance           m_vkInstance;
-  VkPhysicalDevice     m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
-  VkDevice             m_logicalDevice;
-  VkQueue              m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
-  VkQueue              m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
+  VkInstance       m_vkInstance;
+  VkPhysicalDevice m_physicalDevice; // Implicitly destroyed alongside m_vkInstance
+  VkDevice         m_logicalDevice;
+  VkQueue          m_graphicsQueue; // Implicitly destroyed alongside m_logicalDevice
+  VkQueue          m_presentQueue; // Implicitly destroyed alongside m_logicalDevice
 
   deviceManagement::QueueFamilyIndices_t m_queueFamiliesIndices;
 
@@ -163,9 +163,9 @@ private:
   std::vector<VkImage>     m_swapChainImages; // Implicitly destroyed alongside m_swapChain
   std::vector<VkImageView> m_swapChainImageViews;
 
-  VkRenderPass                 m_renderPass;
-  VPStdRenderPipelineManager*  m_pGraphicsPipelineManager;
-  std::vector<VkFramebuffer>   m_swapChainFrameBuffers;
+  VkRenderPass                m_renderPass;
+  VPStdRenderPipelineManager* m_pGraphicsPipelineManager;
+  std::vector<VkFramebuffer>  m_swapChainFrameBuffers;
 
   size_t m_currentFrame;
   std::vector<VkSemaphore> m_imageAvailableSemaphores;
@@ -256,24 +256,6 @@ private:
     ++_width;
     ++_height;
   }
-
-  //static std::vector<char> ReadShaderFileCallback(const char* _fileName)
-  //{
-  //  // Read the file from the end and as a binary file
-  //  std::ifstream file(_fileName, std::ios::ate | std::ios::binary);
-  //  if (!file.is_open()) throw std::runtime_error("ERROR: Couldn't open file"); //%s", _fileName);
-
-  //  size_t fileSize = static_cast<size_t>(file.tellg());
-  //  // We use a vector of chars instead of a char* or a string for more simplicity during the shader module creation
-  //  std::vector<char> buffer(fileSize);
-
-  //  // Go back to the beginning of the gile and read all the bytes at once
-  //  file.seekg(0);
-  //  file.read(buffer.data(), fileSize);
-  //  file.close();
-
-  //  return buffer;
-  //};
 };
 }
 #endif

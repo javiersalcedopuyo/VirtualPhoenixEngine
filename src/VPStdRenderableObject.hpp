@@ -3,7 +3,8 @@
 
 #include "VPMaterial.hpp"
 
-namespace vpe {
+namespace vpe
+{
 struct alignas(32) ModelViewProjNormalUBO
 {
   alignas(16) glm::mat4 modelView;
@@ -26,7 +27,7 @@ private:
     m_descriptorSet(VK_NULL_HANDLE),
     m_updateCallback( [](const float, glm::mat4&){} )
   {
-    auto& bufferManager = VPMemoryBufferManager::getInstance();
+    auto& bufferManager = MemoryBufferManager::getInstance();
 
     std::tie(m_vertices, m_indices) = resourcesLoader::loadModel(_modelPath);
 
@@ -48,6 +49,7 @@ private:
   };
 
 public:
+  // TODO: Mesh class //////////////////////////////////////////////////////////////////////////////
   // Raw data
   glm::mat4             m_model;
   std::vector<uint32_t> m_indices;
@@ -60,9 +62,10 @@ public:
   VkDeviceMemory m_vertexBufferMemory;
   VkDeviceMemory m_indexBufferMemory;
   VkDeviceMemory m_uniformBufferMemory;
+  //////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Misc
-  Material*     m_pMaterial; // DOUBT: Should I use shared_ptr instead?
+  Material*       m_pMaterial; // DOUBT: Should I use shared_ptr instead?
   VkDescriptorSet m_descriptorSet;
 
   std::function<void(const float, glm::mat4&)> m_updateCallback;
@@ -71,19 +74,19 @@ public:
 
   inline void createUniformBuffers()
   {
-    VPMemoryBufferManager::getInstance().createBuffer(sizeof(ModelViewProjNormalUBO),
-                                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                                      &m_uniformBuffer,
-                                                      &m_uniformBufferMemory);
+    MemoryBufferManager::getInstance().createBuffer(sizeof(ModelViewProjNormalUBO),
+                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                    &m_uniformBuffer,
+                                                    &m_uniformBufferMemory);
   }
 
   inline void setMaterial(Material* _newMat) { m_pMaterial = _newMat; }
 
   inline void cleanUniformBuffers()
   {
-    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
     vkDestroyBuffer(logicalDevice, m_uniformBuffer, nullptr);
     vkFreeMemory(logicalDevice, m_uniformBufferMemory, nullptr);
@@ -91,7 +94,7 @@ public:
 
   inline void cleanUp()
   {
-    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
     vkDestroyBuffer(logicalDevice, m_indexBuffer, nullptr);
     vkDestroyBuffer(logicalDevice, m_vertexBuffer, nullptr);

@@ -10,14 +10,15 @@
 
 #include "VPCommandBufferManager.hpp"
 
-namespace vpe {
-class VPMemoryBufferManager
+namespace vpe
+{
+class MemoryBufferManager
 {
 public:
 
-  static inline VPMemoryBufferManager& getInstance()
+  static inline MemoryBufferManager& getInstance()
   {
-    static VPMemoryBufferManager instance;
+    static MemoryBufferManager instance;
     return instance;
   }
 
@@ -57,8 +58,8 @@ public:
   VkDescriptorPool createDescriptorPool(VkDescriptorPoolSize* _poolSizes, const uint32_t _count);
 
 private:
-  VPMemoryBufferManager() : m_pLogicalDevice(nullptr), m_pPhysicalDevice(nullptr) {};
-  ~VPMemoryBufferManager()
+  MemoryBufferManager() : m_pLogicalDevice(nullptr), m_pPhysicalDevice(nullptr) {};
+  ~MemoryBufferManager()
   {
     m_pLogicalDevice  = nullptr;
     m_pPhysicalDevice = nullptr;

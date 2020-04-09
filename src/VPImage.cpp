@@ -4,10 +4,10 @@
 namespace vpe
 {
 void Image::createImage(const VkImageCreateInfo& _info,
-                          VkImage&                 _image,
-                          VkDeviceMemory&          _imageMemory)
+                        VkImage&                 _image,
+                        VkDeviceMemory&          _imageMemory)
 {
-  VPMemoryBufferManager& bufferManager = VPMemoryBufferManager::getInstance();
+  MemoryBufferManager& bufferManager = MemoryBufferManager::getInstance();
   const VkDevice&        logicalDevice = *bufferManager.m_pLogicalDevice;
 
   if (vkCreateImage(logicalDevice, &_info, nullptr, &_image) != VK_SUCCESS)
@@ -20,10 +20,10 @@ void Image::createImage(const VkImageCreateInfo& _info,
   const uint32_t memoryType = bufferManager.findMemoryType(memoryReq.memoryTypeBits,
                                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  VkMemoryAllocateInfo allocInfo = {};
-  allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.allocationSize       = memoryReq.size;
-  allocInfo.memoryTypeIndex      = memoryType;
+  VkMemoryAllocateInfo allocInfo{};
+  allocInfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocInfo.allocationSize  = memoryReq.size;
+  allocInfo.memoryTypeIndex = memoryType;
 
   if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &_imageMemory) != VK_SUCCESS)
     throw std::runtime_error("ERROR: createImage - Failed to allocate image memory!");
@@ -32,15 +32,15 @@ void Image::createImage(const VkImageCreateInfo& _info,
 }
 
 VkImageView Image::createImageView(const VkImage&           _image,
-                                     const VkFormat&          _format,
-                                     const VkImageAspectFlags _aspectFlags,
-                                     const uint32_t           _mipLevels)
+                                   const VkFormat&          _format,
+                                   const VkImageAspectFlags _aspectFlags,
+                                   const uint32_t           _mipLevels)
 {
-  const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+  const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
   VkImageView result;
 
-  VkImageViewCreateInfo createInfo           = {};
+  VkImageViewCreateInfo createInfo{};
   createInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   createInfo.image                           = _image;
   createInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D; // 1D, 2S, 3D or Cube Map
@@ -65,9 +65,9 @@ VkImageView Image::createImageView(const VkImage&           _image,
 
 void Image::createImageSampler(const uint32_t _mipLevels)
 {
-  const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+  const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
-  VkSamplerCreateInfo samplerInfo     = {};
+  VkSamplerCreateInfo samplerInfo{};
   samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   samplerInfo.magFilter               = VK_FILTER_LINEAR; // Oversampling filter
   samplerInfo.minFilter               = VK_FILTER_LINEAR; // Undersampling filter
@@ -90,16 +90,16 @@ void Image::createImageSampler(const uint32_t _mipLevels)
 }
 
 void Image::transitionLayout(const VkImage&       _image,
-                               const VkFormat       _format,
-                               const VkImageLayout& _oldLayout,
-                               const VkImageLayout& _newLayout,
-                               const uint32_t       _mipLevels)
+                             const VkFormat       _format,
+                             const VkImageLayout& _oldLayout,
+                             const VkImageLayout& _newLayout,
+                             const uint32_t       _mipLevels)
 {
   VkPipelineStageFlags srcStage;
   VkPipelineStageFlags dstStage;
   VkCommandBuffer      commandBuffer = CommandBufferManager::getInstance().beginSingleTimeCommand();
 
-  VkImageMemoryBarrier barrier            = {};
+  VkImageMemoryBarrier barrier{};
   barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.oldLayout                       = _oldLayout;
   barrier.newLayout                       = _newLayout;
@@ -159,8 +159,8 @@ void Image::transitionLayout(const VkImage&       _image,
 
 void Image::loadFromFile(const char* _path)
 {
-  VPMemoryBufferManager& bufferManager = VPMemoryBufferManager::getInstance();
-  const VkDevice&        logicalDevice = *bufferManager.m_pLogicalDevice;
+  MemoryBufferManager& bufferManager = MemoryBufferManager::getInstance();
+  const VkDevice&      logicalDevice = *bufferManager.m_pLogicalDevice;
 
   // TODO: loadImage //////////////////////////////////////////////////////////////////////////////
   int      texWidth     = 0;
@@ -189,27 +189,27 @@ void Image::loadFromFile(const char* _path)
                              &stagingBuffer,
                              &stagingMemory);
 
-  VPMemoryBufferManager::getInstance().copyToBufferMemory(pixels, stagingMemory, imageSize);
+  MemoryBufferManager::getInstance().copyToBufferMemory(pixels, stagingMemory, imageSize);
 
   stbi_image_free(pixels);
 
-  VkImageCreateInfo imageInfo = {};
-  imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.imageType         = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width      = texWidth;
-  imageInfo.extent.height     = texHeight;
-  imageInfo.extent.depth      = 1;
-  imageInfo.mipLevels         = mipLevels;
-  imageInfo.arrayLayers       = 1;
-  imageInfo.format            = format;
-  imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL; // Texels are laid out in optimal order
-  imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
-  imageInfo.usage             = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                VK_IMAGE_USAGE_SAMPLED_BIT,
-  imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.samples           = VK_SAMPLE_COUNT_1_BIT;
-  imageInfo.flags             = 0;
+  VkImageCreateInfo imageInfo{};
+  imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.imageType     = VK_IMAGE_TYPE_2D;
+  imageInfo.extent.width  = texWidth;
+  imageInfo.extent.height = texHeight;
+  imageInfo.extent.depth  = 1;
+  imageInfo.mipLevels     = mipLevels;
+  imageInfo.arrayLayers   = 1;
+  imageInfo.format        = format;
+  imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL; // Texels are laid out in optimal order
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageInfo.usage         = VK_IMAGE_USAGE_TRANSFER_SRC_BIT  |
+                             VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                             VK_IMAGE_USAGE_SAMPLED_BIT,
+  imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.flags         = 0;
 
   createImage(imageInfo, m_image, m_memory);
 
@@ -232,11 +232,11 @@ void Image::loadFromFile(const char* _path)
 }
 
 void Image::copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,
-                                const uint32_t  _width,  const uint32_t _height)
+                              const uint32_t  _width,  const uint32_t _height)
 {
   VkCommandBuffer commandBuffer = CommandBufferManager::getInstance().beginSingleTimeCommand();
 
-  VkBufferImageCopy region               = {};
+  VkBufferImageCopy region{};
   region.bufferOffset                    = 0; // Buffer index with the 1st pixel value
   region.bufferRowLength                 = 0; // Padding
   region.bufferImageHeight               = 0; // Padding
@@ -259,13 +259,13 @@ void Image::copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,
 }
 
 void Image::generateMipMaps(VkImage&       _image,
-                              const VkFormat _format,
-                              int            _width,
-                              int            _height,
-                              uint32_t       _mipLevels)
+                            const VkFormat _format,
+                            int            _width,
+                            int            _height,
+                            uint32_t       _mipLevels)
 { // TODO: Load mipmaps from file instead of generating them in runtime
   VkFormatProperties formatProperties;
-  vkGetPhysicalDeviceFormatProperties(*VPMemoryBufferManager::getInstance().m_pPhysicalDevice,
+  vkGetPhysicalDeviceFormatProperties(*MemoryBufferManager::getInstance().m_pPhysicalDevice,
                                       _format,
                                       &formatProperties);
 
@@ -274,7 +274,7 @@ void Image::generateMipMaps(VkImage&       _image,
 
   VkCommandBuffer commandBuffer = CommandBufferManager::getInstance().beginSingleTimeCommand();
 
-  VkImageMemoryBarrier barrier            = {};
+  VkImageMemoryBarrier barrier{};
   barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.image                           = _image;
   barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
@@ -301,7 +301,7 @@ void Image::generateMipMaps(VkImage&       _image,
                          1, &barrier);
 
     // NOTE: The offsets indicate the region of the image that will be used for the blit
-    VkImageBlit blit                   = {};
+    VkImageBlit blit{};
     blit.srcOffsets[0]                 = {0,0,0};
     blit.srcOffsets[1]                 = {_width, _height, 1};
     blit.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;

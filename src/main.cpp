@@ -4,6 +4,7 @@ static double s_scrollY = 0;
 
 // To avoid de compiler complaining
 #define NOT_USED(x) ( (void)(x) )
+#define PTR_NOT_USED(x) ( (void*)(x) )
 
 int main()
 {
@@ -11,9 +12,9 @@ int main()
 
   std::cout << "Starting..." << std::endl;
 
-  glm::vec3 cameraUp      = UP;
+  glm::vec3 cameraUp      = vpe::UP;
   glm::vec3 cameraPos     = glm::vec3(0, 1, -4);
-  glm::vec3 cameraForward = FRONT;
+  glm::vec3 cameraForward = vpe::FRONT;
 
   try
   {
@@ -61,10 +62,10 @@ int main()
 
     modelMat1 = glm::rotate(modelMat1,
                             glm::radians(90.0f),          // Rotation angle
-                            UP); // Up axis
+                            vpe::UP); // Up axis
     modelMat2 = glm::rotate(modelMat2,
                             glm::radians(90.0f),          // Rotation angle
-                            UP); // Up axis
+                            vpe::UP); // Up axis
 
     uint32_t dragonIdx1 = renderer.createObject("../Models/teapot.obj", modelMat1);
     uint32_t dragonIdx2 = renderer.createObject("../Models/dragon.obj", modelMat2);
@@ -79,7 +80,7 @@ int main()
 
     auto rotateCB = [](const float _deltaTime, glm::mat4& _model)
     {
-      _model = glm::rotate(_model, _deltaTime * glm::radians(90.0f), UP);
+      _model = glm::rotate(_model, _deltaTime * glm::radians(90.0f), vpe::UP);
     };
 
     //auto jumpingCB = [](const float _deltaTime, glm::mat4& _model)
@@ -92,8 +93,8 @@ int main()
     {
       auto currentTime = glfwGetTime();
 
-      _model = glm::translate(_model, 0.5f * UP * _deltaTime * static_cast<float>(sin(currentTime)));
-      _model = glm::rotate(_model, _deltaTime * glm::radians(90.0f), UP);
+      _model = glm::translate(_model, 0.5f * vpe::UP * _deltaTime * static_cast<float>(sin(currentTime)));
+      _model = glm::rotate(_model, _deltaTime * glm::radians(90.0f), vpe::UP);
     };
 
     renderer.setObjUpdateCB(dragonIdx1, rotateCB);

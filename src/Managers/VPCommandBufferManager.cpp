@@ -4,10 +4,10 @@ namespace vpe
 {
 void CommandBufferManager::createCommandPool(const uint32_t _queueFamilyIdx)
 {
-  VkCommandPoolCreateInfo createInfo      = {};
-  createInfo.sType                        = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  createInfo.queueFamilyIndex             = _queueFamilyIdx;
-  createInfo.flags                        = 0; // Optional
+  VkCommandPoolCreateInfo createInfo{};
+  createInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  createInfo.queueFamilyIndex = _queueFamilyIdx;
+  createInfo.flags            = 0; // Optional
 
   if (vkCreateCommandPool(*m_pLogicalDevice, &createInfo, nullptr, &m_commandPool) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed to create command pool");
@@ -18,25 +18,25 @@ void CommandBufferManager::allocateNCommandBuffers(const uint32_t _num)
   m_commandBuffers.resize(_num);
 
   // Allocate the buffers TODO: Refactor into own function
-  VkCommandBufferAllocateInfo allocInfo = {};
-  allocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  allocInfo.commandPool                 = m_commandPool;
-  allocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submited to queue, but not called from other buffers
-  allocInfo.commandBufferCount          = m_commandBuffers.size();
+  VkCommandBufferAllocateInfo allocInfo{};
+  allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.commandPool        = m_commandPool;
+  allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submited to queue, but not called from other buffers
+  allocInfo.commandBufferCount = m_commandBuffers.size();
 
   if (vkAllocateCommandBuffers(*m_pLogicalDevice, &allocInfo, m_commandBuffers.data()) != VK_SUCCESS)
     throw std::runtime_error("ERROR: VPCommandBufferManager::allocateNCommandBuffers - Failed!");
 }
 
 void CommandBufferManager::beginRecordingCommand(const uint32_t _idx,
-                                                   const VkCommandBufferUsageFlags _flags)
+                                                 const VkCommandBufferUsageFlags _flags)
 {
   if (_idx >= m_commandBuffers.size()) return;
 
-  VkCommandBufferBeginInfo beginInfo = {};
-  beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  beginInfo.flags                    = _flags;
-  beginInfo.pInheritanceInfo         = nullptr; // Only relevant for secondary command buffers
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags            = _flags;
+  beginInfo.pInheritanceInfo = nullptr; // Only relevant for secondary command buffers
 
   if (vkBeginCommandBuffer(m_commandBuffers.at(_idx), &beginInfo) != VK_SUCCESS)
     throw std::runtime_error("ERROR: VPCommandBufferManager::beginRecordingCommand - Failed!");
@@ -57,7 +57,7 @@ VkCommandBuffer CommandBufferManager::beginSingleTimeCommand()
   VkCommandBuffer result;
 
   // Allocate the buffers TODO: Refactor into own function
-  VkCommandBufferAllocateInfo allocInfo = {};
+  VkCommandBufferAllocateInfo allocInfo{};
   allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submited to queue, but not called from other buffers
   allocInfo.commandPool        = m_commandPool;
@@ -65,7 +65,7 @@ VkCommandBuffer CommandBufferManager::beginSingleTimeCommand()
 
   vkAllocateCommandBuffers(*m_pLogicalDevice, &allocInfo, &result);
 
-  VkCommandBufferBeginInfo beginInfo = {};
+  VkCommandBufferBeginInfo beginInfo{};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
@@ -84,7 +84,7 @@ void CommandBufferManager::endSingleTimeCommand(VkCommandBuffer& _commandBuffer,
 {
   vkEndCommandBuffer(_commandBuffer);
 
-  VkSubmitInfo submitInfo       = {};
+  VkSubmitInfo submitInfo{};
   submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers    = &_commandBuffer;

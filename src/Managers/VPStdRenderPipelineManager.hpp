@@ -14,9 +14,10 @@
 #include "../VPStdRenderableObject.hpp"
 #include "../VPLight.hpp"
 
+namespace vpe
+{
 constexpr uint8_t BINDING_COUNT = 3;
 
-namespace vpe {
 class VPStdRenderPipelineManager
 {
 public:
@@ -40,7 +41,7 @@ public:
 
   ~VPStdRenderPipelineManager()
   {
-    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
     vkDestroyDescriptorSetLayout(logicalDevice, m_descriptorSetLayout, nullptr);
     vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
   }
@@ -66,7 +67,7 @@ public:
 
   inline void recreateLayouts(size_t _lightsCount)
   {
-    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
     vkDestroyDescriptorSetLayout(logicalDevice, m_descriptorSetLayout, nullptr);
     vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
 
@@ -97,14 +98,14 @@ public:
     m_descriptorPoolSizes[2].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     m_descriptorPoolSizes[2].descriptorCount = _texCount;
 
-    m_descriptorPool = VPMemoryBufferManager::getInstance()
+    m_descriptorPool = MemoryBufferManager::getInstance()
                          .createDescriptorPool(m_descriptorPoolSizes.data(),
                                                m_descriptorPoolSizes.size());
   }
 
   inline void cleanUp()
   {
-    const VkDevice& logicalDevice = *VPMemoryBufferManager::getInstance().m_pLogicalDevice;
+    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
     for (auto& pair : m_pipelinePool)
       vkDestroyPipeline(logicalDevice, pair.second, nullptr);

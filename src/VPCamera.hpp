@@ -8,6 +8,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
+namespace vpe
+{
 constexpr glm::vec3 UP    = glm::vec3( 0.0f,  1.0f,  0.0f);
 constexpr glm::vec3 DOWN  = glm::vec3( 0.0f, -1.0f,  0.0f);
 constexpr glm::vec3 LEFT  = glm::vec3(-1.0f,  0.0f,  0.0f);
@@ -15,8 +17,6 @@ constexpr glm::vec3 RIGHT = glm::vec3( 1.0f,  0.0f,  0.0f);
 constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  0.0f,  1.0f);
 constexpr glm::vec3 BACK  = glm::vec3( 0.0f,  0.0f, -1.0f);
 
-namespace vpe
-{
 class Camera
 {
 public:

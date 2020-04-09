@@ -50,7 +50,7 @@ void Renderer::initVulkan()
   m_physicalDevice       = deviceManagement::getPhysicalDevice(m_vkInstance, m_surface);
   m_queueFamiliesIndices = deviceManagement::findQueueFamilies(m_physicalDevice, m_surface);
   m_logicalDevice        = deviceManagement::createLogicalDevice(m_physicalDevice,
-                                                                   m_queueFamiliesIndices);
+                                                                 m_queueFamiliesIndices);
 
   VkPhysicalDeviceProperties properties{};
   vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
@@ -60,7 +60,7 @@ void Renderer::initVulkan()
 
   m_msaaSampleCount = getMaxUsableSampleCount();
 
-  VPMemoryBufferManager&  bufferManager        = VPMemoryBufferManager::getInstance();
+  MemoryBufferManager&  bufferManager        = MemoryBufferManager::getInstance();
   CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
 
   commandBufferManager.setLogicalDevice(&m_logicalDevice);
@@ -82,12 +82,12 @@ void Renderer::initVulkan()
   createDepthResources();
   createFrameBuffers();
 
-  VPMemoryBufferManager::getInstance().createBuffer(sizeof(LightUBO),
-                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                                    &m_lightsUBO,
-                                                    &m_lightsUBOMemory);
+  MemoryBufferManager::getInstance().createBuffer(sizeof(LightUBO),
+                                                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                  &m_lightsUBO,
+                                                  &m_lightsUBOMemory);
 
   setupRenderCommands();
   createSyncObjects();
@@ -116,9 +116,12 @@ void Renderer::drawFrame()
   vkWaitForFences(m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
   uint32_t imageIdx = 0;
-  VkResult result = vkAcquireNextImageKHR(m_logicalDevice, m_swapChain,
-                                          UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame],
-                                          VK_NULL_HANDLE, &imageIdx);
+  VkResult result   = vkAcquireNextImageKHR(m_logicalDevice,
+                                            m_swapChain,
+                                            UINT64_MAX,
+                                            m_imageAvailableSemaphores[m_currentFrame],
+                                            VK_NULL_HANDLE,
+                                            &imageIdx);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR)
   {
@@ -141,8 +144,8 @@ void Renderer::drawFrame()
 
   updateScene();
 
-  VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  VkSubmitInfo submitInfo{};
+  submitInfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.waitSemaphoreCount   = 1;
   submitInfo.pWaitSemaphores      = waitSemaphores;
   submitInfo.pWaitDstStageMask    = waitStages;
@@ -157,7 +160,7 @@ void Renderer::drawFrame()
     throw std::runtime_error("ERROR: Failed to submit draw command buffer!");
 
   VkSwapchainKHR   swapChains[]  = {m_swapChain};
-  VkPresentInfoKHR presentInfo   = {};
+  VkPresentInfoKHR presentInfo{};
   presentInfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores    = signalSemaphores;
@@ -218,8 +221,8 @@ void Renderer::renderLoop()
 // Get the extensions required by GLFW and by the validation layers (if enabled)
 std::vector<const char*> Renderer::getGLFWRequiredExtensions()
 {
-  uint32_t extensionsCount = 0;
-  const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
+  uint32_t     extensionsCount = 0;
+  const char** glfwExtensions  = glfwGetRequiredInstanceExtensions(&extensionsCount);
 
   std::vector<const char*> extensions(glfwExtensions, glfwExtensions + extensionsCount);
 
@@ -286,7 +289,7 @@ void Renderer::createSwapChain()
 
   uint32_t imageCount = swapChain.capabilities.minImageCount + 1;
 
-  VkSwapchainCreateInfoKHR createInfo = {};
+  VkSwapchainCreateInfoKHR createInfo{};
   createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   createInfo.surface          = m_surface;
   createInfo.minImageCount    = imageCount;
@@ -412,7 +415,7 @@ void Renderer::createImageViews()
 
 void Renderer::createRenderPass()
 {
-  VkAttachmentDescription colorAttachment = {};
+  VkAttachmentDescription colorAttachment{};
   colorAttachment.format         = m_swapChainImageFormat;
   colorAttachment.samples        = m_msaaSampleCount;
   colorAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR; // Clear before render
@@ -423,7 +426,7 @@ void Renderer::createRenderPass()
   colorAttachment.finalLayout    = MSAA_ENABLED ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
                                                 : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-  VkAttachmentDescription depthAttachment = {};
+  VkAttachmentDescription depthAttachment{};
   depthAttachment.format         = findDepthFormat();
   depthAttachment.samples        = m_msaaSampleCount;
   depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -433,7 +436,7 @@ void Renderer::createRenderPass()
   depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
   depthAttachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-  VkAttachmentDescription resolveAttachment = {};
+  VkAttachmentDescription resolveAttachment{};
   resolveAttachment.format         = m_swapChainImageFormat;
   resolveAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
   resolveAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE; // Clear before render
@@ -448,43 +451,43 @@ void Renderer::createRenderPass()
 
   // SUBPASSES (at least 1)
   // Reference to the color attachment
-  VkAttachmentReference colorAttachmentRef = {};
-  colorAttachmentRef.attachment            = 0;
-  colorAttachmentRef.layout                = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  VkAttachmentReference colorAttachmentRef{};
+  colorAttachmentRef.attachment = 0;
+  colorAttachmentRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  VkAttachmentReference depthAttachmentRef = {};
-  depthAttachmentRef.attachment            = 1;
-  depthAttachmentRef.layout                = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  VkAttachmentReference depthAttachmentRef{};
+  depthAttachmentRef.attachment = 1;
+  depthAttachmentRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-  VkAttachmentReference resolveAttachmentRef = {};
-  resolveAttachmentRef.attachment            = 2;
-  resolveAttachmentRef.layout                = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  VkAttachmentReference resolveAttachmentRef{};
+  resolveAttachmentRef.attachment = 2;
+  resolveAttachmentRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
   // Subpass itself
-  VkSubpassDescription subpass    = {};
+  VkSubpassDescription subpass{};
   subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
   subpass.colorAttachmentCount    = 1;
   subpass.pColorAttachments       = &colorAttachmentRef;
   subpass.pDepthStencilAttachment = &depthAttachmentRef;
   subpass.pResolveAttachments     = MSAA_ENABLED ? &resolveAttachmentRef : nullptr;
 
-  VkSubpassDependency dependency = {};
-  dependency.srcSubpass          = VK_SUBPASS_EXTERNAL;
-  dependency.dstSubpass          = 0;
-  dependency.srcStageMask        = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.srcAccessMask       = 0;
-  dependency.dstStageMask        = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.dstAccessMask       = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  VkSubpassDependency dependency{};
+  dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass    = 0;
+  dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.srcAccessMask = 0;
+  dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-  VkRenderPassCreateInfo createInfo = {};
-  createInfo.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  createInfo.attachmentCount        = attachments.size();
-  createInfo.pAttachments           = attachments.data();
-  createInfo.subpassCount           = 1;
-  createInfo.pSubpasses             = &subpass;
-  createInfo.dependencyCount        = 1;
-  createInfo.pDependencies          = &dependency;
+  VkRenderPassCreateInfo createInfo{};
+  createInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  createInfo.attachmentCount = attachments.size();
+  createInfo.pAttachments    = attachments.data();
+  createInfo.subpassCount    = 1;
+  createInfo.pSubpasses      = &subpass;
+  createInfo.dependencyCount = 1;
+  createInfo.pDependencies   = &dependency;
 
   if (vkCreateRenderPass(m_logicalDevice, &createInfo, nullptr, &m_renderPass) != VK_SUCCESS)
     throw std::runtime_error("ERROR: Failed creating render pass!");
@@ -507,7 +510,7 @@ void Renderer::createFrameBuffers()
 
   for (size_t i=0; i<m_swapChainImageViews.size(); ++i)
   {
-    std::vector<VkImageView> attachments = {};
+    std::vector<VkImageView> attachments {};
 
     if (MSAA_ENABLED)
     {
@@ -521,14 +524,14 @@ void Renderer::createFrameBuffers()
       attachments.push_back(m_depthImageView);
     }
 
-    VkFramebufferCreateInfo createInfo = {};
-    createInfo.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    createInfo.renderPass              = m_renderPass;
-    createInfo.attachmentCount         = attachments.size();
-    createInfo.pAttachments            = attachments.data();
-    createInfo.width                   = m_swapChainExtent.width;
-    createInfo.height                  = m_swapChainExtent.height;
-    createInfo.layers                  = 1;
+    VkFramebufferCreateInfo createInfo{};
+    createInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    createInfo.renderPass      = m_renderPass;
+    createInfo.attachmentCount = attachments.size();
+    createInfo.pAttachments    = attachments.data();
+    createInfo.width           = m_swapChainExtent.width;
+    createInfo.height          = m_swapChainExtent.height;
+    createInfo.layers          = 1;
 
     if (vkCreateFramebuffer(m_logicalDevice, &createInfo, nullptr, &m_swapChainFrameBuffers.at(i)) != VK_SUCCESS)
       throw std::runtime_error("ERROR: Failed to create the framebuffer.");
@@ -539,7 +542,7 @@ void Renderer::setupRenderCommands()
 {
   CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
 
-  std::array<VkClearValue, 2> clearValues = {};
+  std::array<VkClearValue, 2> clearValues {};
   clearValues[0].color        = CLEAR_COLOR_GREY;
   clearValues[1].depthStencil = {1.0f, 0};
 
@@ -551,8 +554,8 @@ void Renderer::setupRenderCommands()
     commandBufferManager.beginRecordingCommand(i);
 
     // Start render pass //TODO: Refactor into own function
-    VkRenderPassBeginInfo renderPassInfo = {};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass        = m_renderPass;
     renderPassInfo.framebuffer       = m_swapChainFrameBuffers.at(i);
     renderPassInfo.renderArea.offset = {0,0};
@@ -624,9 +627,9 @@ void Renderer::updateObjects()
   m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
                              static_cast<float>(m_swapChainExtent.height) );
 
-  ModelViewProjNormalUBO mvpnUBO = {};
-  mvpnUBO.view             = m_pCamera->getViewMat();
-  mvpnUBO.proj             = m_pCamera->getProjMat();
+  ModelViewProjNormalUBO mvpnUBO{};
+  mvpnUBO.view = m_pCamera->getViewMat();
+  mvpnUBO.proj = m_pCamera->getProjMat();
 
   for (auto& object : m_renderableObjects)
   {
@@ -636,9 +639,9 @@ void Renderer::updateObjects()
     mvpnUBO.normal    = glm::transpose(glm::inverse(mvpnUBO.modelView));
 
     // TODO: Update just the needed fields instead of everything
-    VPMemoryBufferManager::getInstance().copyToBufferMemory(&mvpnUBO,
-                                                            object.m_uniformBufferMemory,
-                                                            sizeof(mvpnUBO));
+    MemoryBufferManager::getInstance().copyToBufferMemory(&mvpnUBO,
+                                                          object.m_uniformBufferMemory,
+                                                          sizeof(mvpnUBO));
   }
 }
 
@@ -646,28 +649,28 @@ void Renderer::createDepthResources()
 {
   VkFormat format = findDepthFormat();
 
-  VkImageCreateInfo imageInfo = {};
-  imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.imageType         = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width      = m_swapChainExtent.width;
-  imageInfo.extent.height     = m_swapChainExtent.height;
-  imageInfo.extent.depth      = 1;
-  imageInfo.mipLevels         = 1;
-  imageInfo.arrayLayers       = 1;
-  imageInfo.format            = format;
-  imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL; // Texels are laid out in optimal order
-  imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
-  imageInfo.usage             = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-  imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.samples           = m_msaaSampleCount;
-  imageInfo.flags             = 0;
+  VkImageCreateInfo imageInfo{};
+  imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.imageType     = VK_IMAGE_TYPE_2D;
+  imageInfo.extent.width  = m_swapChainExtent.width;
+  imageInfo.extent.height = m_swapChainExtent.height;
+  imageInfo.extent.depth  = 1;
+  imageInfo.mipLevels     = 1;
+  imageInfo.arrayLayers   = 1;
+  imageInfo.format        = format;
+  imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL; // Texels are laid out in optimal order
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageInfo.usage         = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.samples       = m_msaaSampleCount;
+  imageInfo.flags         = 0;
 
   Image::createImage(imageInfo, m_depthImage, m_depthMemory);
 
   m_depthImageView = Image::createImageView(m_depthImage,
-                                              format,
-                                              VK_IMAGE_ASPECT_DEPTH_BIT,
-                                              1);
+                                            format,
+                                            VK_IMAGE_ASPECT_DEPTH_BIT,
+                                            1);
 }
 
 VkFormat Renderer::findDepthFormat()
@@ -682,22 +685,22 @@ VkFormat Renderer::findDepthFormat()
 
 void Renderer::createColorResources()
 {
-  VkImageCreateInfo imageInfo = {};
-  imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.imageType         = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width      = m_swapChainExtent.width;
-  imageInfo.extent.height     = m_swapChainExtent.height;
-  imageInfo.extent.depth      = 1;
-  imageInfo.mipLevels         = 1;
-  imageInfo.arrayLayers       = 1;
-  imageInfo.format            = m_swapChainImageFormat;
-  imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL; // Texels are laid out in optimal order
-  imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
-  imageInfo.usage             = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
-                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-  imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.samples           = m_msaaSampleCount;
-  imageInfo.flags             = 0;
+  VkImageCreateInfo imageInfo{};
+  imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.imageType     = VK_IMAGE_TYPE_2D;
+  imageInfo.extent.width  = m_swapChainExtent.width;
+  imageInfo.extent.height = m_swapChainExtent.height;
+  imageInfo.extent.depth  = 1;
+  imageInfo.mipLevels     = 1;
+  imageInfo.arrayLayers   = 1;
+  imageInfo.format        = m_swapChainImageFormat;
+  imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL; // Texels are laid out in optimal order
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageInfo.usage         = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.samples       = m_msaaSampleCount;
+  imageInfo.flags         = 0;
 
   Image::createImage(imageInfo, m_colorImage, m_colorImageMemory);
 
@@ -757,10 +760,10 @@ void Renderer::createSyncObjects()
   m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
   m_imagesInFlight.resize(m_swapChainImages.size(), VK_NULL_HANDLE);
 
-  VkSemaphoreCreateInfo semaphoreCI = {};
+  VkSemaphoreCreateInfo semaphoreCI{};
   semaphoreCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-  VkFenceCreateInfo fencesCI = {};
+  VkFenceCreateInfo fencesCI{};
   fencesCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fencesCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 

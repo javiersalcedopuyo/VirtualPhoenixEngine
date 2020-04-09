@@ -11,7 +11,7 @@ class CommandBufferManager
 {
 public:
   CommandBufferManager(CommandBufferManager const&) = delete;
-  void operator=(CommandBufferManager const&)         = delete;
+  void operator=(CommandBufferManager const&)       = delete;
 
   static inline CommandBufferManager& getInstance()
   {
@@ -19,10 +19,10 @@ public:
     return instance;
   }
 
-  inline void            setLogicalDevice(VkDevice* _device) { m_pLogicalDevice = _device; }
-  inline void            setQueue(VkQueue* _queue)           { m_pQueue = _queue; }
-  inline size_t          getCommandBufferCount()             { return m_commandBuffers.size(); }
-  inline VkCommandBuffer& getBufferAt(const uint32_t _idx)   { return m_commandBuffers.at(_idx); }
+  inline void             setLogicalDevice(VkDevice* _device) { m_pLogicalDevice = _device; }
+  inline void             setQueue(VkQueue* _queue)           { m_pQueue = _queue; }
+  inline size_t           getCommandBufferCount()             { return m_commandBuffers.size(); }
+  inline VkCommandBuffer& getBufferAt(const uint32_t _idx)    { return m_commandBuffers.at(_idx); }
 
   void createCommandPool(const uint32_t _queueFamilyIdx);
 
@@ -37,9 +37,10 @@ public:
 
   inline void freeBuffers()
   {
-    vkFreeCommandBuffers(*m_pLogicalDevice, m_commandPool,
-                        static_cast<uint32_t>(m_commandBuffers.size()),
-                        m_commandBuffers.data());
+    vkFreeCommandBuffers(*m_pLogicalDevice,
+                         m_commandPool,
+                         m_commandBuffers.size(),
+                         m_commandBuffers.data());
   }
 
   inline void destroyCommandPool()

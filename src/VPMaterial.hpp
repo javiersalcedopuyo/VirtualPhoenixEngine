@@ -37,7 +37,7 @@ struct Material
   std::vector<char> vertShaderCode;
   std::vector<char> fragShaderCode;
 
-  Image*    pTexture;
+  Image*      pTexture;
   VkPipeline* pPipeline;
 
   inline void init(const char* _vert, const char* _frag, const char* _tex)
@@ -67,7 +67,6 @@ struct Material
     delete pTexture;
     pTexture = nullptr;
   }
-
 };
 }
 #endif

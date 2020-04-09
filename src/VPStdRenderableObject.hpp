@@ -2,6 +2,7 @@
 #define VP_RENDERABLE_OBJECT_HPP
 
 #include "VPMaterial.hpp"
+#include "VPMesh.hpp"
 
 namespace vpe
 {
@@ -20,52 +21,26 @@ friend class Renderer;
 private:
   StdRenderableObject() = delete;
   StdRenderableObject(const glm::mat4&  _model,
-                        const char* _modelPath,
-                        Material* _pMaterial) :
+                      Mesh* _mesh,
+                      Material* _pMaterial) :
     m_model(_model),
+    m_pMesh(_mesh),
     m_pMaterial(_pMaterial),
     m_descriptorSet(VK_NULL_HANDLE),
     m_updateCallback( [](const float, glm::mat4&){} )
   {
-    auto& bufferManager = MemoryBufferManager::getInstance();
-
-    std::tie(m_vertices, m_indices) = resourcesLoader::loadModel(_modelPath);
-
-    bufferManager.fillBuffer(&m_vertexBuffer,
-                             m_vertices.data(),
-                             m_vertexBufferMemory,
-                             sizeof(m_vertices[0]) * m_vertices.size(),
-                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    bufferManager.fillBuffer(&m_indexBuffer,
-                             m_indices.data(),
-                             m_indexBufferMemory,
-                             sizeof(m_indices[0]) * m_indices.size(),
-                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
     this->createUniformBuffers();
   };
 
 public:
-  // TODO: Mesh class //////////////////////////////////////////////////////////////////////////////
-  // Raw data
-  glm::mat4             m_model;
-  std::vector<uint32_t> m_indices;
-  std::vector<Vertex>   m_vertices;
-
-  // Buffers and memory
-  VkBuffer       m_vertexBuffer;
-  VkBuffer       m_indexBuffer;
+  // TODO: Transform
+  glm::mat4      m_model;
   VkBuffer       m_uniformBuffer;
-  VkDeviceMemory m_vertexBufferMemory;
-  VkDeviceMemory m_indexBufferMemory;
   VkDeviceMemory m_uniformBufferMemory;
-  //////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Misc
-  Material*       m_pMaterial; // DOUBT: Should I use shared_ptr instead?
+  Mesh*     m_pMesh;
+  Material* m_pMaterial; // DOUBT: Should I use shared_ptr instead?
   VkDescriptorSet m_descriptorSet;
 
   std::function<void(const float, glm::mat4&)> m_updateCallback;
@@ -82,7 +57,8 @@ public:
                                                     &m_uniformBufferMemory);
   }
 
-  inline void setMaterial(Material* _newMat) { m_pMaterial = _newMat; }
+  inline void setMaterial(Material* _newMat) { m_pMaterial = _newMat;  }
+  inline void setMesh(Mesh* _newMesh)        { m_pMesh     = _newMesh; }
 
   inline void cleanUniformBuffers()
   {
@@ -94,13 +70,7 @@ public:
 
   inline void cleanUp()
   {
-    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-
-    vkDestroyBuffer(logicalDevice, m_indexBuffer, nullptr);
-    vkDestroyBuffer(logicalDevice, m_vertexBuffer, nullptr);
-    vkFreeMemory(logicalDevice, m_vertexBufferMemory, nullptr);
-    vkFreeMemory(logicalDevice, m_indexBufferMemory, nullptr);
-
+    m_pMesh     = nullptr;
     m_pMaterial = nullptr; // Not the owner
   }
 };

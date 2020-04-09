@@ -3,7 +3,7 @@
 
 namespace vpe
 {
-void Image::createImage(const VkImageCreateInfo& _info,
+void Image::createVkImage(const VkImageCreateInfo& _info,
                         VkImage&                 _image,
                         VkDeviceMemory&          _imageMemory)
 {
@@ -157,51 +157,37 @@ void Image::transitionLayout(const VkImage&       _image,
   CommandBufferManager::getInstance().endSingleTimeCommand(commandBuffer);
 }
 
-void Image::loadFromFile(const char* _path)
+void Image::createFromFile(const char* _path)
 {
   MemoryBufferManager& bufferManager = MemoryBufferManager::getInstance();
   const VkDevice&      logicalDevice = *bufferManager.m_pLogicalDevice;
+  VkBuffer             stagingBuffer;
+  VkDeviceMemory       stagingMemory;
 
-  // TODO: loadImage //////////////////////////////////////////////////////////////////////////////
-  int      texWidth     = 0;
-  int      texHeight    = 0;
-  int      texChannels  = 0;
-  VkFormat format       = VK_FORMAT_R8G8B8A8_UNORM; // TODO: get the format from the image itself
+  auto imageData = resourcesLoader::loadImage(_path);
 
-  stbi_uc* pixels = stbi_load(_path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-
-  uint32_t mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
-
-  VkDeviceSize imageSize = texWidth * texHeight * texChannels;
-
-  if (pixels == nullptr)
-    throw std::runtime_error("ERROR: createTexture - Failed to load image!");
-  /////////////////////////////////////////////////////////////////////////////////////////////////
-
-  // TODO: transferToDevice (?) ////////////////////////////////////////////////////////////////////
-  VkBuffer       stagingBuffer;
-  VkDeviceMemory stagingMemory;
-
-  bufferManager.createBuffer(imageSize,
+  bufferManager.createBuffer(imageData.size(),
                              VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                              &stagingBuffer,
                              &stagingMemory);
 
-  MemoryBufferManager::getInstance().copyToBufferMemory(pixels, stagingMemory, imageSize);
+  MemoryBufferManager::getInstance().copyToBufferMemory(imageData.pPixels,
+                                                        stagingMemory,
+                                                        imageData.size());
 
-  stbi_image_free(pixels);
+  stbi_image_free(imageData.pPixels);
 
   VkImageCreateInfo imageInfo{};
   imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageInfo.imageType     = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width  = texWidth;
-  imageInfo.extent.height = texHeight;
+  imageInfo.extent.width  = imageData.width;
+  imageInfo.extent.height = imageData.heigth;
   imageInfo.extent.depth  = 1;
-  imageInfo.mipLevels     = mipLevels;
+  imageInfo.mipLevels     = imageData.mipLevels;
   imageInfo.arrayLayers   = 1;
-  imageInfo.format        = format;
+  imageInfo.format        = imageData.format;
   imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL; // Texels are laid out in optimal order
   imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   imageInfo.usage         = VK_IMAGE_USAGE_TRANSFER_SRC_BIT  |
@@ -211,24 +197,28 @@ void Image::loadFromFile(const char* _path)
   imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.flags         = 0;
 
-  createImage(imageInfo, m_image, m_memory);
+  createVkImage(imageInfo, m_image, m_memory);
 
   transitionLayout(m_image,
-                   format,
+                   imageData.format,
                    VK_IMAGE_LAYOUT_UNDEFINED,
                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                   mipLevels);
+                   imageData.mipLevels);
 
-  copyBufferToImage(stagingBuffer, &m_image, texWidth, texHeight);
+  copyBufferToImage(stagingBuffer, &m_image, imageData.width, imageData.heigth);
 
   vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
   vkFreeMemory(logicalDevice, stagingMemory, nullptr);
 
   // Implicitly transitioned into SHADER_READ_ONLY_OPTIMAL
-  generateMipMaps(m_image, format, texWidth, texHeight, mipLevels);
+  generateMipMaps(m_image, imageData.format, imageData.width, imageData.heigth, imageData.mipLevels);
 
-  m_imageView = createImageView(m_image, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
-  if (m_needsSampler) createImageSampler(mipLevels);
+  m_imageView = createImageView(m_image,
+                                imageData.format,
+                                VK_IMAGE_ASPECT_COLOR_BIT,
+                                imageData.mipLevels);
+
+  if (m_needsSampler) createImageSampler(imageData.mipLevels);
 }
 
 void Image::copyBufferToImage(const VkBuffer& _buffer,       VkImage* _pImage,

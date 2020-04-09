@@ -18,8 +18,6 @@
 
 // EXIT_SUCCESS and EXIT_FAILURES
 #include <cstdlib>
-// Loading files
-#include <fstream>
 // Max int values
 #include <cstdint>
 // General use
@@ -91,6 +89,13 @@ public:
   }
 
   uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat);
+
+  inline void addMesh(const char* _path)
+  {
+    if (m_pMeshes.count(_path) > 0) return;
+
+    m_pMeshes.insert( {_path, new Mesh(_path)} );
+  }
 
   inline uint32_t createMaterial(const char* _vertShaderPath,
                                  const char* _fragShaderPath,
@@ -173,9 +178,10 @@ private:
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
 
-  std::vector<Light>               m_lights;
-  std::vector<StdRenderableObject> m_renderableObjects;
-  std::vector<Material*>           m_pMaterials;
+  std::vector<Light>                     m_lights;
+  std::vector<Material*>                 m_pMaterials;
+  std::vector<StdRenderableObject>       m_renderableObjects;
+  std::unordered_map<const char*, Mesh*> m_pMeshes;
 
   VkBuffer       m_lightsUBO;
   VkDeviceMemory m_lightsUBOMemory;

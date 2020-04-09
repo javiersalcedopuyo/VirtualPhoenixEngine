@@ -58,8 +58,7 @@ struct Material
   {
     if (pTexture != nullptr) this->cleanUp();
 
-    pTexture = new Image();
-    pTexture->loadFromFile(_texturePath);
+    pTexture = new Image(_texturePath);
   }
 
   inline void cleanUp()

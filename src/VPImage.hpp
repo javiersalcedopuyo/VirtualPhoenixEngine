@@ -2,11 +2,11 @@
 #define VP_IMAGE_HPP
 
 #include <vulkan/vulkan.h>
-#include <stb_image.h>
 
 #include <cstring>
 
 #include "Managers/VPMemoryBufferManager.hpp"
+#include "VPResourcesLoader.hpp"
 
 namespace vpe
 {
@@ -29,11 +29,22 @@ public:
     m_imageView(VK_NULL_HANDLE),
     m_sampler(VK_NULL_HANDLE)
   {}
+
+  Image(const char* _path) :
+    m_needsSampler(true),
+    m_image(VK_NULL_HANDLE),
+    m_memory(VK_NULL_HANDLE),
+    m_imageView(VK_NULL_HANDLE),
+    m_sampler(VK_NULL_HANDLE)
+  {
+    createFromFile(_path);
+  }
+
   ~Image() { cleanUp(); }
 
-  void loadFromFile(const char* _path);
+  void createFromFile(const char* _path);
 
-  static void createImage(const VkImageCreateInfo& _info,
+  static void createVkImage(const VkImageCreateInfo& _info,
                           VkImage&                 _image,
                           VkDeviceMemory&          _imageMemory);
 

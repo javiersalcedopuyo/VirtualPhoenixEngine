@@ -8,8 +8,6 @@
 // Error management
 #include <stdexcept>
 #include <iostream>
-// Loading files
-#include <fstream>
 
 #include "../VPStdRenderableObject.hpp"
 #include "../VPLight.hpp"

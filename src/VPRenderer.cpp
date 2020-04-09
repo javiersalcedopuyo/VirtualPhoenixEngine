@@ -95,7 +95,11 @@ void Renderer::initVulkan()
 
 uint32_t Renderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
 {
-  m_renderableObjects.push_back(StdRenderableObject(_modelMat, _modelPath, m_pMaterials.at(0)));
+  if (m_pMeshes.count(_modelPath) == 0) addMesh(_modelPath);
+
+  m_renderableObjects.push_back( StdRenderableObject(_modelMat,
+                                                     m_pMeshes.at(_modelPath),
+                                                     m_pMaterials.at(0)) );
 
   this->recreateSwapChain(); // FIXME: This is overkill
 
@@ -583,12 +587,12 @@ void Renderer::setupRenderCommands()
                          &numLights);
 
       // Bind the vertex buffers
-      VkBuffer     vertexBuffers[] = {object.m_vertexBuffer};
+      VkBuffer     vertexBuffers[] = {object.m_pMesh->m_vertexBuffer};
       VkDeviceSize offsets[]       = {0};
       vkCmdBindVertexBuffers(commandBufferManager.getBufferAt(i), 0, 1, vertexBuffers, offsets);
 
       vkCmdBindIndexBuffer(commandBufferManager.getBufferAt(i),
-                           object.m_indexBuffer,
+                           object.m_pMesh->m_indexBuffer,
                            0,
                            VK_INDEX_TYPE_UINT32);
 
@@ -602,7 +606,7 @@ void Renderer::setupRenderCommands()
                               nullptr);
 
       vkCmdDrawIndexed(commandBufferManager.getBufferAt(i),
-                       object.m_indices.size(),
+                       object.m_pMesh->m_indices.size(),
                        1, 0, 0, 0);
     }
 
@@ -665,7 +669,7 @@ void Renderer::createDepthResources()
   imageInfo.samples       = m_msaaSampleCount;
   imageInfo.flags         = 0;
 
-  Image::createImage(imageInfo, m_depthImage, m_depthMemory);
+  Image::createVkImage(imageInfo, m_depthImage, m_depthMemory);
 
   m_depthImageView = Image::createImageView(m_depthImage,
                                             format,
@@ -702,7 +706,7 @@ void Renderer::createColorResources()
   imageInfo.samples       = m_msaaSampleCount;
   imageInfo.flags         = 0;
 
-  Image::createImage(imageInfo, m_colorImage, m_colorImageMemory);
+  Image::createVkImage(imageInfo, m_colorImage, m_colorImageMemory);
 
   m_colorImageView = Image::createImageView(m_colorImage,
                                               m_swapChainImageFormat,
@@ -799,8 +803,10 @@ void Renderer::cleanUp()
 
   cleanUpSwapChain();
 
-  for (auto& obj : m_renderableObjects) obj.cleanUp();
-  for (auto  mat : m_pMaterials) delete mat;
+  for (auto& obj         : m_renderableObjects) obj.cleanUp();
+  for (auto  pathAndMesh : m_pMeshes)           delete pathAndMesh.second;
+  for (auto  mat         : m_pMaterials)        delete mat;
+
   vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
   vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
 

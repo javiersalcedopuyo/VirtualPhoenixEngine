@@ -1,90 +1,29 @@
 #ifndef VP_RESOURCES_LOADER_HPP
 #define VP_RESOURCES_LOADER_HPP
 
-#ifndef GLM_FORCE_LEFT_HANDED
-#define GLM_FORCE_LEFT_HANDED
-#endif
-
-#include <vulkan/vulkan.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-
 #include <tiny_obj_loader.h>
+#include <stb_image.h>
 
-namespace vpe
-{
-struct Vertex
-{
-  bool operator==(const Vertex& other) const
-  {
-    return pos      == other.pos    &&
-           color    == other.color  &&
-           normal   == other.normal &&
-           texCoord == other.texCoord;
-  }
+#include <vector>
+#include <fstream>
 
-  glm::vec2 texCoord;
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec3 normal;
-
-  static inline VkVertexInputBindingDescription getBindingDescription()
-  {
-    VkVertexInputBindingDescription bd = {};
-    bd.binding   = 0;
-    bd.stride    = sizeof(Vertex);
-    bd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    return bd;
-  }
-
-  static inline std::array<VkVertexInputAttributeDescription,4> getAttributeDescriptions()
-  {
-    std::array<VkVertexInputAttributeDescription,4> descriptions = {};
-    descriptions[0].binding  = 0;
-    descriptions[0].location = 0;
-    descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[0].offset   = offsetof(Vertex, pos);
-
-    descriptions[1].binding  = 0;
-    descriptions[1].location = 1;
-    descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[1].offset   = offsetof(Vertex, color);
-
-    descriptions[2].binding  = 0;
-    descriptions[2].location = 2;
-    descriptions[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    descriptions[2].offset   = offsetof(Vertex, normal);
-
-    descriptions[3].binding  = 0;
-    descriptions[3].location = 3;
-    descriptions[3].format   = VK_FORMAT_R32G32_SFLOAT;
-    descriptions[3].offset   = offsetof(Vertex, texCoord);
-
-    return descriptions;
-  }
-};
-} // namespace vpe
-
-namespace std
-{
-// Needed to use Vertex as keys in an unordered map
-template <> struct hash<vpe::Vertex>
-{
-  size_t operator()(vpe::Vertex const& vertex) const
-  {
-    return ((((hash<glm::vec3>()(vertex.pos) ^
-              (hash<glm::vec3>()(vertex.color) << 1)) >>1) ^
-              (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
-              (hash<glm::vec2>()(vertex.texCoord) << 1);
-  }
-};
-} // namespace std
+#include "VPVertex.hpp"
 
 namespace vpe {
 namespace resourcesLoader
 {
+  struct ImageData
+  {
+    int      width;
+    int      heigth;
+    int      channels;
+    int      mipLevels;
+    VkFormat format;
+    stbi_uc* pPixels = nullptr;
+
+    inline int size() { return width * heigth * channels; }
+  };
+
   static inline std::vector<char> parseShaderFile(const char* _fileName)
   {
     // Read the file from the end and as a binary file
@@ -95,12 +34,27 @@ namespace resourcesLoader
     // We use a vector of chars instead of a char* or a string for more simplicity during the shader module creation
     std::vector<char> buffer(fileSize);
 
-    // Go back to the beginning of the gile and read all the bytes at once
+    // Go back to the beginning of the file and read all the bytes at once
     file.seekg(0);
     file.read(buffer.data(), fileSize);
     file.close();
 
     return buffer;
+  }
+
+  static inline ImageData loadImage(const char* _path)
+  {
+    ImageData result{};
+
+    result.format = VK_FORMAT_R8G8B8A8_UNORM; // TODO: get the format from the image itself
+
+    result.pPixels = stbi_load(_path, &result.width, &result.heigth, &result.channels, STBI_rgb_alpha);
+    result.mipLevels = std::floor(std::log2(std::max(result.width, result.heigth))) + 1;
+
+    if (result.pPixels == nullptr)
+      throw std::runtime_error("ERROR: vpe::resourcesLoader::loadImage - Failed to load image!");
+
+    return result;
   }
 
   static inline std::pair< std::vector<Vertex>, std::vector<uint32_t> > loadModel(const char* _path)

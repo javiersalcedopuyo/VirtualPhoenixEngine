@@ -7,6 +7,7 @@
 #include <cstring>
 #include <set>
 #include <vector>
+#include <memory>
 
 namespace vpe
 {

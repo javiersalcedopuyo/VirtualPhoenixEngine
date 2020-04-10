@@ -14,7 +14,7 @@ Renderer::Renderer() :
   m_pWindow(nullptr),
   m_pCamera(nullptr),
   m_frameBufferResized(false),
-  m_pGraphicsPipelineManager(nullptr),
+  m_pRenderPipelineManager(nullptr),
   m_currentFrame(0),
   m_msaaSampleCount(VK_SAMPLE_COUNT_1_BIT)
 {}
@@ -63,10 +63,10 @@ void Renderer::initVulkan()
   MemoryBufferManager&  bufferManager        = MemoryBufferManager::getInstance();
   CommandBufferManager& commandBufferManager = CommandBufferManager::getInstance();
 
-  commandBufferManager.setLogicalDevice(&m_logicalDevice);
   commandBufferManager.setQueue(&m_graphicsQueue);
-  bufferManager.m_pLogicalDevice  = &m_logicalDevice;
-  bufferManager.m_pPhysicalDevice = &m_physicalDevice;
+  commandBufferManager.m_pLogicalDevice = &m_logicalDevice;
+  bufferManager.m_pLogicalDevice        = &m_logicalDevice;
+  bufferManager.m_pPhysicalDevice       = &m_physicalDevice;
 
   commandBufferManager.createCommandPool(m_queueFamiliesIndices.graphicsFamily.value());
 
@@ -194,8 +194,8 @@ void Renderer::renderLoop()
   float  rotateSpeed = 10.0f;
 
   UserInputContext userInputCtx{};
-  userInputCtx.window            = m_pWindow;
-  userInputCtx.camera            = m_pCamera;
+  userInputCtx.pWindow           = m_pWindow;
+  userInputCtx.pCamera           = m_pCamera;
   userInputCtx.deltaTime         = m_deltaTime;
   userInputCtx.cameraMoveSpeed   = moveSpeed;
   userInputCtx.cameraRotateSpeed = rotateSpeed;
@@ -328,7 +328,7 @@ void Renderer::cleanUpSwapChain()
 
   CommandBufferManager::getInstance().freeBuffers();
 
-  m_pGraphicsPipelineManager->cleanUp();
+  m_pRenderPipelineManager->cleanUp();
   vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
 
   for (auto& imageView : m_swapChainImageViews)
@@ -362,18 +362,18 @@ void Renderer::recreateSwapChain()
   this->createDepthResources();
   this->createFrameBuffers();
 
-  m_pGraphicsPipelineManager->createDescriptorPool(m_renderableObjects.size(),
-                                                   m_lights.size() * m_renderableObjects.size(),
-                                                   m_renderableObjects.size());
+  m_pRenderPipelineManager->createDescriptorPool(m_renderableObjects.size(),
+                                                 m_lights.size() * m_renderableObjects.size(),
+                                                 m_renderableObjects.size());
 
   // NOTE: Right now this is overkill, but it will come handy if we use a single buffer for all
   //       objects' MVPNs
-  m_pGraphicsPipelineManager->recreateLayouts(m_lights.size());
+  m_pRenderPipelineManager->recreateLayouts(m_lights.size());
 
   for (auto& object : m_renderableObjects)
   {
     object.createUniformBuffers();
-    m_pGraphicsPipelineManager->createOrUpdateDescriptorSet(&object, m_lightsUBO, m_lights.size());
+    m_pRenderPipelineManager->createOrUpdateDescriptorSet(&object, m_lightsUBO, m_lights.size());
   }
 
   this->setupRenderCommands();
@@ -474,13 +474,7 @@ void Renderer::createRenderPass()
 
 void Renderer::createGraphicsPipelineManager()
 {
-  if (m_pGraphicsPipelineManager != nullptr)
-  {
-    m_pGraphicsPipelineManager->cleanUp();
-    delete m_pGraphicsPipelineManager;
-    m_pGraphicsPipelineManager = nullptr;
-  }
-  m_pGraphicsPipelineManager = new VPStdRenderPipelineManager(&m_renderPass, m_lights.size());
+  m_pRenderPipelineManager.reset( new StdRenderPipelineManager(m_renderPass, m_lights.size()) );
 }
 
 void Renderer::createFrameBuffers()
@@ -550,12 +544,12 @@ void Renderer::setupRenderCommands()
     {
       vkCmdBindPipeline(commandBufferManager.getBufferAt(i),
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        m_pGraphicsPipelineManager->getOrCreatePipeline(m_swapChainExtent,
-                                                                        *object.m_pMaterial));
+                        m_pRenderPipelineManager->getOrCreatePipeline(m_swapChainExtent,
+                                                                      *object.m_pMaterial));
 
       const int numLights = m_lights.size();
       vkCmdPushConstants(commandBufferManager.getBufferAt(i),
-                         m_pGraphicsPipelineManager->getPipelineLayout(),
+                         m_pRenderPipelineManager->getPipelineLayout(),
                          VK_SHADER_STAGE_FRAGMENT_BIT,
                          0,
                          sizeof(int),
@@ -573,7 +567,7 @@ void Renderer::setupRenderCommands()
 
       vkCmdBindDescriptorSets(commandBufferManager.getBufferAt(i),
                               VK_PIPELINE_BIND_POINT_GRAPHICS,
-                              m_pGraphicsPipelineManager->getPipelineLayout(),
+                              m_pRenderPipelineManager->getPipelineLayout(),
                               0,
                               1,
                               &object.m_descriptorSet,
@@ -601,7 +595,7 @@ void Renderer::updateLights()
 
 void Renderer::updateObjects()
 {
-  if (m_pCamera == nullptr) m_pCamera = new Camera();
+  if (!m_pCamera) m_pCamera.reset( new Camera() );
 
   m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
                              static_cast<float>(m_swapChainExtent.height) );
@@ -738,7 +732,7 @@ void Renderer::createSyncObjects()
 
 void Renderer::cleanUp()
 {
-  if (m_pCamera != nullptr) delete m_pCamera;
+  if (m_pCamera != nullptr) m_pCamera.reset();
   if (m_pUserInputController != nullptr) delete m_pUserInputController;
 
   if (ENABLE_VALIDATION_LAYERS)
@@ -754,13 +748,13 @@ void Renderer::cleanUp()
   this->cleanUpSwapChain();
 
   for (auto& obj         : m_renderableObjects) obj.cleanUp();
-  for (auto  pathAndMesh : m_pMeshes)           delete pathAndMesh.second;
-  for (auto  mat         : m_pMaterials)        delete mat;
+  for (auto& pathAndMesh : m_pMeshes)           pathAndMesh.second.reset();
+  for (auto& mat         : m_pMaterials)        mat.reset();
 
   vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
   vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
 
-  delete m_pGraphicsPipelineManager;
+  m_pRenderPipelineManager.reset();
 
   CommandBufferManager::getInstance().destroyCommandPool();
 

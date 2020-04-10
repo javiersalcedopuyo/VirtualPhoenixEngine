@@ -15,7 +15,7 @@ public:
 
   inline void processInput(UserInputContext& _ctx)
   {
-    updateCursorDelta(_ctx.window, _ctx.cursorDelta);
+    updateCursorDelta(_ctx.pWindow, _ctx.cursorDelta);
     if (cameraMovementCB) cameraMovementCB(_ctx);
   }
 

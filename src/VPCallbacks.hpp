@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <functional>
 #include <array>
+#include <memory>
 
 #include "VPCamera.hpp"
 
@@ -15,29 +16,28 @@ namespace vpe
 {
 struct UserInputContext
 {
-  void* pData;
+  GLFWwindow* pWindow;
+  std::shared_ptr<Camera> pCamera;
+
   float cameraMoveSpeed;
   float cameraRotateSpeed;
   float deltaTime;
   float scrollY;
 
   std::array<double,2> cursorDelta;
-
-  Camera*   camera;
-  GLFWwindow* window;
 };
 
 namespace callbacks
 {
   static inline void cameraMovementWASD(UserInputContext& _ctx)
   {
-    if (_ctx.camera == nullptr) return;
+    if (!_ctx.pCamera) return;
 
     float     angle     = _ctx.cameraRotateSpeed * _ctx.deltaTime;
     float     distance  = _ctx.cameraMoveSpeed * _ctx.deltaTime;
     glm::vec3 direction = glm::vec3();
 
-    if (glfwGetMouseButton(_ctx.window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+    if (glfwGetMouseButton(_ctx.pWindow, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
     { // Rotate the camera by dragging
       float panAngle  = 0;
       float tiltAngle = 0;
@@ -48,11 +48,11 @@ namespace callbacks
         tiltAngle = -angle * _ctx.cursorDelta[1] * 50;
       }
 
-      _ctx.camera->rotate(RIGHT * tiltAngle);
-      _ctx.camera->rotate(UP    * panAngle);
+      _ctx.pCamera->rotate(RIGHT * tiltAngle);
+      _ctx.pCamera->rotate(UP    * panAngle);
     }
 
-    if (glfwGetMouseButton(_ctx.window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS)
+    if (glfwGetMouseButton(_ctx.pWindow, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS)
     { // Move camera by dragging
       if (!_ctx.cursorDelta.empty())
       {
@@ -63,7 +63,7 @@ namespace callbacks
       }
 
       if (direction != glm::vec3(0)) direction = glm::normalize(direction);
-      _ctx.camera->translate( direction * distance );
+      _ctx.pCamera->translate( direction * distance );
 
       direction = glm::vec3(0);
       distance  = _ctx.cameraMoveSpeed * _ctx.deltaTime;
@@ -77,32 +77,32 @@ namespace callbacks
     else
     {
       // DOUBT: Should I use Ctrl + key instead?
-      if (glfwGetKey(_ctx.window, GLFW_KEY_W) == GLFW_PRESS) direction += FRONT;
-      if (glfwGetKey(_ctx.window, GLFW_KEY_S) == GLFW_PRESS) direction += BACK;
-      if (glfwGetKey(_ctx.window, GLFW_KEY_A) == GLFW_PRESS) direction += LEFT;
-      if (glfwGetKey(_ctx.window, GLFW_KEY_D) == GLFW_PRESS) direction += RIGHT;
+      if (glfwGetKey(_ctx.pWindow, GLFW_KEY_W) == GLFW_PRESS) direction += FRONT;
+      if (glfwGetKey(_ctx.pWindow, GLFW_KEY_S) == GLFW_PRESS) direction += BACK;
+      if (glfwGetKey(_ctx.pWindow, GLFW_KEY_A) == GLFW_PRESS) direction += LEFT;
+      if (glfwGetKey(_ctx.pWindow, GLFW_KEY_D) == GLFW_PRESS) direction += RIGHT;
     }
 
     if (direction != glm::vec3(0)) direction = glm::normalize(direction);
 
-    _ctx.camera->translate( direction * distance );
+    _ctx.pCamera->translate( direction * distance );
   }
 
   static inline void cameraMovementArrows(UserInputContext& _ctx)
   {
-    if (_ctx.camera == nullptr) return;
+    if (_ctx.pCamera == nullptr) return;
 
     float     distance  = _ctx.cameraMoveSpeed * _ctx.deltaTime;
     glm::vec3 direction = glm::vec3();
 
-    if (glfwGetKey(_ctx.window, GLFW_KEY_UP)    == GLFW_PRESS) direction += FRONT;
-    if (glfwGetKey(_ctx.window, GLFW_KEY_DOWN)  == GLFW_PRESS) direction += BACK;
-    if (glfwGetKey(_ctx.window, GLFW_KEY_LEFT)  == GLFW_PRESS) direction += LEFT;
-    if (glfwGetKey(_ctx.window, GLFW_KEY_RIGHT) == GLFW_PRESS) direction += RIGHT;
+    if (glfwGetKey(_ctx.pWindow, GLFW_KEY_UP)    == GLFW_PRESS) direction += FRONT;
+    if (glfwGetKey(_ctx.pWindow, GLFW_KEY_DOWN)  == GLFW_PRESS) direction += BACK;
+    if (glfwGetKey(_ctx.pWindow, GLFW_KEY_LEFT)  == GLFW_PRESS) direction += LEFT;
+    if (glfwGetKey(_ctx.pWindow, GLFW_KEY_RIGHT) == GLFW_PRESS) direction += RIGHT;
 
     if (direction != glm::vec3(0)) direction = glm::normalize(direction);
 
-    _ctx.camera->translate( direction * distance );
+    _ctx.pCamera->translate( direction * distance );
   }
 }
 }

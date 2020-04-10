@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "VPImage.hpp"
 #include "VPResourcesLoader.hpp"
@@ -15,56 +16,52 @@ const char* const DEFAULT_VERT = "../src/Shaders/vert.spv";
 const char* const DEFAULT_FRAG = "../src/Shaders/frag.spv";
 const char* const DEFAULT_TEX  = "../Textures/Default.png";
 
-struct Material
+struct StdMaterial
 {
-  Material() : pTexture(nullptr), pPipeline(nullptr)
+  StdMaterial() : pTexture(nullptr)
   {
     init(DEFAULT_VERT, DEFAULT_FRAG, DEFAULT_TEX);
   };
 
-  Material(const char* _vert, const char* _frag, const char* _tex) :
-    pTexture(nullptr),
-    pPipeline(nullptr)
+  StdMaterial(const char* _vert, const char* _frag, const char* _tex) : pTexture(nullptr)
   {
     init(_vert, _frag, _tex);
   };
 
-  ~Material() { cleanUp(); }
+  ~StdMaterial() { cleanUp(); }
 
+  std::unique_ptr<Image> pTexture;
   size_t hash;
 
   std::vector<char> vertShaderCode;
   std::vector<char> fragShaderCode;
 
-  Image*      pTexture;
-  VkPipeline* pPipeline;
+  static inline size_t hashFn(std::vector<const char*> _input)
+  {
+    std::hash<std::string> stringHash;
+
+    std::string id;
+    for (auto& c : _input) id += c;
+
+    return stringHash(id);
+  }
 
   inline void init(const char* _vert, const char* _frag, const char* _tex)
   {
     vertShaderCode = resourcesLoader::parseShaderFile(_vert);
     fragShaderCode = resourcesLoader::parseShaderFile(_frag);
-    loadTexture(_tex);
+    changeTexture(_tex);
 
-    std::hash<std::string> hashFn;
-
-    std::string id(_vert);
-    id += _frag;
-
-    hash = hashFn(id);
+    const char* textureCount = "1";
+    hash = hashFn( {_vert, _frag, textureCount} );
   }
 
-  inline void loadTexture(const char* _texturePath)
+  inline void changeTexture(const char* _texturePath)
   {
-    if (pTexture != nullptr) this->cleanUp();
-
-    pTexture = new Image(_texturePath);
+    pTexture.reset( new Image(_texturePath) );
   }
 
-  inline void cleanUp()
-  {
-    delete pTexture;
-    pTexture = nullptr;
-  }
+  inline void cleanUp() { pTexture.reset(); }
 };
 }
 #endif

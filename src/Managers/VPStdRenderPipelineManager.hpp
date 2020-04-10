@@ -16,12 +16,12 @@ namespace vpe
 {
 constexpr uint8_t BINDING_COUNT = 3;
 
-class VPStdRenderPipelineManager
+class StdRenderPipelineManager
 {
 public:
 
-  VPStdRenderPipelineManager() = delete;
-  VPStdRenderPipelineManager(VkRenderPass* _renderPass, const size_t _lightsCount) :
+  StdRenderPipelineManager() = delete;
+  StdRenderPipelineManager(VkRenderPass& _renderPass, const size_t _lightsCount) :
     m_renderPass(_renderPass),
     m_pipelineLayout(VK_NULL_HANDLE),
     m_descriptorPool(VK_NULL_HANDLE)
@@ -37,21 +37,24 @@ public:
     createLayouts(_lightsCount);
   };
 
-  ~VPStdRenderPipelineManager()
+  ~StdRenderPipelineManager()
   {
     const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
+
+    this->cleanUp();
     vkDestroyDescriptorSetLayout(logicalDevice, m_descriptorSetLayout, nullptr);
     vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
   }
 
-  void createPipeline(const VkExtent2D& _extent, const Material& _material);
+  void createPipeline(const VkExtent2D& _extent, const StdMaterial& _material);
 
-  VkShaderModule  createShaderModule(const std::vector<char>& _code);
-  void            createOrUpdateDescriptorSet(StdRenderableObject* _obj,
-                                              VkBuffer& _lightsUBO,
-                                              const size_t _lightCount);
+  void createOrUpdateDescriptorSet(StdRenderableObject* _obj,
+                                   VkBuffer& _lightsUBO,
+                                   const size_t _lightCount);
 
   void updateViewportState(const VkExtent2D& _extent);
+
+  static VkShaderModule createShaderModule(const std::vector<char>& _code);
 
   static inline std::array<VkVertexInputAttributeDescription,4> getAttributeDescriptions()
   {
@@ -72,7 +75,7 @@ public:
     createLayouts(_lightsCount);
   }
 
-  inline VkPipeline& getOrCreatePipeline(const VkExtent2D& _extent, const Material& _material)
+  inline VkPipeline& getOrCreatePipeline(const VkExtent2D& _extent, const StdMaterial& _material)
   {
     if (m_pipelinePool.count(_material.hash) == 0)
       createPipeline(_extent, _material);
@@ -109,12 +112,17 @@ public:
       vkDestroyPipeline(logicalDevice, pair.second, nullptr);
 
     m_pipelinePool.clear();
-    vkDestroyDescriptorPool(logicalDevice, m_descriptorPool, nullptr);
+
+    if (m_descriptorPool != VK_NULL_HANDLE)
+    {
+      vkDestroyDescriptorPool(logicalDevice, m_descriptorPool, nullptr);
+      m_descriptorPool = VK_NULL_HANDLE;
+    }
   }
 
 private:
 
-  VkRenderPass* m_renderPass;
+  VkRenderPass& m_renderPass;
 
   VkPipelineViewportStateCreateInfo      m_viewportState;
   VkPipelineLayout                       m_pipelineLayout;

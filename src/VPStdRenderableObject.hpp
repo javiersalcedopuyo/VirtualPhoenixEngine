@@ -21,8 +21,8 @@ friend class Renderer;
 private:
   StdRenderableObject() = delete;
   StdRenderableObject(const glm::mat4&  _model,
-                      Mesh* _mesh,
-                      Material* _pMaterial) :
+                      std::shared_ptr<Mesh>& _mesh,
+                      std::shared_ptr<StdMaterial>& _pMaterial) :
     m_model(_model),
     m_pMesh(_mesh),
     m_pMaterial(_pMaterial),
@@ -39,9 +39,9 @@ public:
   VkDeviceMemory m_uniformBufferMemory;
 
   // Misc
-  Mesh*     m_pMesh;
-  Material* m_pMaterial; // DOUBT: Should I use shared_ptr instead?
-  VkDescriptorSet m_descriptorSet;
+  std::shared_ptr<Mesh>        m_pMesh;
+  std::shared_ptr<StdMaterial> m_pMaterial;
+  VkDescriptorSet              m_descriptorSet;
 
   std::function<void(const float, glm::mat4&)> m_updateCallback;
 
@@ -57,8 +57,17 @@ public:
                                                     &m_uniformBufferMemory);
   }
 
-  inline void setMaterial(Material* _newMat) { m_pMaterial = _newMat;  }
-  inline void setMesh(Mesh* _newMesh)        { m_pMesh     = _newMesh; }
+  inline void setMaterial(std::shared_ptr<StdMaterial>& _newMat)
+  {
+    m_pMaterial.reset();
+    m_pMaterial = _newMat;
+  }
+
+  inline void setMesh(std::shared_ptr<Mesh>& _newMesh)
+  {
+    m_pMesh.reset();
+    m_pMesh = _newMesh;
+  }
 
   inline void cleanUniformBuffers()
   {
@@ -70,8 +79,8 @@ public:
 
   inline void cleanUp()
   {
-    m_pMesh     = nullptr;
-    m_pMaterial = nullptr; // Not the owner
+    m_pMesh.reset();
+    m_pMaterial.reset();
   }
 };
 }

@@ -26,7 +26,6 @@
 #include <array>
 #include <unordered_map>
 #include <utility>
-
 #include <chrono>
 #include <functional>
 
@@ -123,20 +122,20 @@ public:
   {
     if (m_pMeshes.count(_path) > 0) return;
 
-    m_pMeshes.insert( {_path, new Mesh(_path)} );
+    m_pMeshes.emplace( _path, new Mesh(_path) );
   }
 
   inline uint32_t createMaterial(const char* _vertShaderPath,
                                  const char* _fragShaderPath,
                                  const char* _texturePath)
   {
-    m_pMaterials.push_back(new Material(_vertShaderPath, _fragShaderPath, _texturePath));
+    m_pMaterials.emplace_back(new StdMaterial(_vertShaderPath, _fragShaderPath, _texturePath));
     return m_pMaterials.size() - 1;
   }
 
   inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
   {
-    m_pMaterials.at(_matIdx)->loadTexture(_path);
+    m_pMaterials.at(_matIdx)->changeTexture(_path);
     this->recreateSwapChain(); // FIXME: Overkill?
   }
 
@@ -147,8 +146,8 @@ public:
   {
     if (m_pCamera == nullptr)
     {
-      m_pCamera = new Camera(_position, _forward, _up,
-                             _near,     _far,     _fov, 1.0f);
+      m_pCamera = std::make_unique<Camera>(_position, _forward, _up,
+                                           _near,     _far,     _fov, 1.0f);
     }
     else
     {
@@ -177,9 +176,10 @@ public:
   }
 
 private:
-  GLFWwindow*  m_pWindow;
-  VkSurfaceKHR m_surface;
-  Camera*      m_pCamera; // TODO: Multi-camera
+  GLFWwindow*             m_pWindow;
+
+  std::shared_ptr<Camera> m_pCamera; // TODO: Multi-camera
+  VkSurfaceKHR            m_surface;
 
   float m_deltaTime;
 
@@ -198,9 +198,9 @@ private:
   std::vector<VkImage>     m_swapChainImages; // Implicitly destroyed alongside m_swapChain
   std::vector<VkImageView> m_swapChainImageViews;
 
-  VkRenderPass                m_renderPass;
-  VPStdRenderPipelineManager* m_pGraphicsPipelineManager;
-  std::vector<VkFramebuffer>  m_swapChainFrameBuffers;
+  VkRenderPass m_renderPass;
+  std::unique_ptr<StdRenderPipelineManager> m_pRenderPipelineManager;
+  std::vector<VkFramebuffer> m_swapChainFrameBuffers;
 
   size_t m_currentFrame;
   std::vector<VkSemaphore> m_imageAvailableSemaphores;
@@ -208,10 +208,11 @@ private:
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
 
-  std::vector<Light>                     m_lights;
-  std::vector<Material*>                 m_pMaterials;
-  std::vector<StdRenderableObject>       m_renderableObjects;
-  std::unordered_map<const char*, Mesh*> m_pMeshes;
+  std::vector<Light> m_lights;
+  std::vector<StdRenderableObject> m_renderableObjects;
+  std::vector<std::shared_ptr<StdMaterial>> m_pMaterials;
+  std::unordered_map<const char*, std::shared_ptr<Mesh>> m_pMeshes;
+  // TODO: Texture map
 
   VkBuffer       m_lightsUBO;
   VkDeviceMemory m_lightsUBOMemory;

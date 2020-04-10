@@ -2,7 +2,7 @@
 
 namespace vpe
 {
-VkShaderModule VPStdRenderPipelineManager::createShaderModule(const std::vector<char>& _code)
+VkShaderModule StdRenderPipelineManager::createShaderModule(const std::vector<char>& _code)
 {
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -19,7 +19,7 @@ VkShaderModule VPStdRenderPipelineManager::createShaderModule(const std::vector<
   return result;
 }
 
-void VPStdRenderPipelineManager::createLayouts(const size_t _lightCount)
+void StdRenderPipelineManager::createLayouts(const size_t _lightCount)
 {
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -78,9 +78,9 @@ void VPStdRenderPipelineManager::createLayouts(const size_t _lightCount)
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createLayouts - Failed to create the pipeline layout!");
 }
 
-void VPStdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* _obj,
-                                                             VkBuffer& _lightsUBO,
-                                                             const size_t _lightCount)
+void StdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* _obj,
+                                                           VkBuffer& _lightsUBO,
+                                                           const size_t _lightCount)
 {
   if (_obj == nullptr) return;
 
@@ -102,10 +102,10 @@ void VPStdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject
 
   // Populate descriptor set
   // TODO: Use a single common UBO with offsets
-  VkDescriptorBufferInfo mvpInfo{};
-  mvpInfo.buffer = _obj->m_uniformBuffer;
-  mvpInfo.offset = 0;
-  mvpInfo.range  = VK_WHOLE_SIZE; // TODO: Update just the needed
+  VkDescriptorBufferInfo mvpnInfo{};
+  mvpnInfo.buffer = _obj->m_uniformBuffer;
+  mvpnInfo.offset = 0;
+  mvpnInfo.range  = VK_WHOLE_SIZE; // TODO: Update just the needed
 
   std::vector<VkDescriptorBufferInfo> lightsInfo;
   lightsInfo.resize(_lightCount);
@@ -116,22 +116,22 @@ void VPStdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject
     lightsInfo.at(i).range  = sizeof(LightUBO);
   }
 
-  VkDescriptorImageInfo imageInfo  = {};
-  imageInfo.imageLayout            = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  imageInfo.imageView              = _obj->m_pMaterial->pTexture->getImageView();
-  imageInfo.sampler                = _obj->m_pMaterial->pTexture->getSampler();
+  VkDescriptorImageInfo imageInfo{};
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView   = _obj->m_pMaterial->pTexture->getImageView();
+  imageInfo.sampler     = _obj->m_pMaterial->pTexture->getSampler();
 
   // TODO: Normal map
 
   std::array<VkWriteDescriptorSet, BINDING_COUNT> descriptorWrites{};
-  // MVP matrices
+  // MVPN matrices
   descriptorWrites[0].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   descriptorWrites[0].dstSet               = _obj->m_descriptorSet;
   descriptorWrites[0].dstBinding           = 0;
   descriptorWrites[0].dstArrayElement      = 0; // Descriptors can be arrays. First index
   descriptorWrites[0].descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   descriptorWrites[0].descriptorCount      = 1;
-  descriptorWrites[0].pBufferInfo          = &mvpInfo;
+  descriptorWrites[0].pBufferInfo          = &mvpnInfo;
   descriptorWrites[0].pImageInfo           = nullptr;
   descriptorWrites[0].pTexelBufferView     = nullptr;
   // Lights
@@ -162,7 +162,7 @@ void VPStdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject
                          nullptr);
 }
 
-void VPStdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
+void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
 {
   VkViewport* viewport = new VkViewport
   {
@@ -190,18 +190,18 @@ void VPStdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
   m_viewportState.pScissors     = scissor;
 }
 
-void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const Material& _material)
+void StdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const StdMaterial& _material)
 {
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
   VkPipeline newPipeline = VK_NULL_HANDLE;
 
-  auto bindingDescription       = Vertex::getBindingDescription();
-  auto attributeDescriptions    = Vertex::getAttributeDescriptions();
+  auto bindingDescription    = Vertex::getBindingDescription();
+  auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
   // PROGRAMMABLE STAGES //
-  VkShaderModule vertShaderMod  = createShaderModule(_material.vertShaderCode);
-  VkShaderModule fragShaderMod  = createShaderModule(_material.fragShaderCode);
+  VkShaderModule vertShaderMod = createShaderModule(_material.vertShaderCode);
+  VkShaderModule fragShaderMod = createShaderModule(_material.fragShaderCode);
 
   // Assign the shaders to the proper stage
   VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -235,7 +235,7 @@ void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const
   inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-  updateViewportState(_extent);
+  this->updateViewportState(_extent);
 
   // Rasterizer
   // depthClamp: Clamps instead of discarding the fragments out of the frustrum.
@@ -302,7 +302,7 @@ void VPStdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const
   pipelineInfo.pColorBlendState    = &colorBlending;
   pipelineInfo.pDynamicState       = nullptr; // TODO:
   pipelineInfo.layout              = m_pipelineLayout;
-  pipelineInfo.renderPass          = *m_renderPass;
+  pipelineInfo.renderPass          = m_renderPass;
   pipelineInfo.subpass             = 0;
 
   if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo,

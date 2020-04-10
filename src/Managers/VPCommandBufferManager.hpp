@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 #include <optional>
 #include <vector>
+#include <memory>
 
 namespace vpe
 {
@@ -19,7 +20,8 @@ public:
     return instance;
   }
 
-  inline void             setLogicalDevice(VkDevice* _device) { m_pLogicalDevice = _device; }
+  VkDevice* m_pLogicalDevice;
+
   inline void             setQueue(VkQueue* _queue)           { m_pQueue = _queue; }
   inline size_t           getCommandBufferCount()             { return m_commandBuffers.size(); }
   inline VkCommandBuffer& getBufferAt(const uint32_t _idx)    { return m_commandBuffers.at(_idx); }
@@ -51,7 +53,7 @@ public:
 
 private:
 
-  CommandBufferManager() : m_commandPool(VK_NULL_HANDLE), m_pLogicalDevice(nullptr) {};
+  CommandBufferManager() : m_pLogicalDevice(nullptr), m_commandPool(VK_NULL_HANDLE) {};
   ~CommandBufferManager()
   {
     if (m_commandPool != VK_NULL_HANDLE) destroyCommandPool();
@@ -62,7 +64,6 @@ private:
   VkCommandPool                m_commandPool;
   std::vector<VkCommandBuffer> m_commandBuffers; // Destroyed alongside m_commandPool
 
-  VkDevice* m_pLogicalDevice;
   VkQueue*  m_pQueue; // Implicitly destroyed alongside m_logicalDevice
 };
 }

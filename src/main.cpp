@@ -49,7 +49,6 @@ int main()
     light1.ubo.color     = glm::vec3(0.5, 0.5, 1);
     light1.ubo.position  = glm::vec3(1, 2, -1);
     light1.ubo.intensity = 1.5;
-    renderer.addLight(light1);
 
     glm::mat4 modelMat1 = glm::mat4(1);
     glm::mat4 modelMat2 = glm::mat4(1);
@@ -68,15 +67,17 @@ int main()
                             vpe::UP); // Up axis
 
     uint32_t dragonIdx1 = renderer.createObject("../Models/teapot.obj", modelMat1);
-    uint32_t dragonIdx2 = renderer.createObject("../Models/dragon.obj", modelMat2);
 
     uint32_t newMaterialIdx = renderer.createMaterial(vpe::DEFAULT_VERT,
                                                       vpe::DEFAULT_FRAG,
                                                       "../Textures/ColorTestTex.png");
 
     renderer.setObjMaterial(dragonIdx1, newMaterialIdx);
+    uint32_t dragonIdx2 = renderer.createObject("../Models/dragon.obj", modelMat2);
     renderer.setObjMaterial(dragonIdx2, vpe::DEFAULT_MATERIAL_IDX);
-    //renderer.loadTextureToMaterial("../Textures/ColorTestTex.png", DEFAULT_MATERIAL_IDX);
+    renderer.loadTextureToMaterial("../Textures/UVTestTex.png", vpe::DEFAULT_MATERIAL_IDX);
+
+    renderer.addLight(light1);
 
     auto rotateCB = [](const float _deltaTime, glm::mat4& _model)
     {

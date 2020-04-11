@@ -90,33 +90,10 @@ public:
   void renderLoop();
   void cleanUp();
 
-  uint32_t addLight(Light& _light)
-  {
-    uint32_t   idx     = m_lights.size();
-    const auto uboSize = sizeof(LightUBO);
-
-    m_lights.emplace_back(_light.type, idx, _light.ubo);
-
-    vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
-    vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
-
-    auto& bufferManager = MemoryBufferManager::getInstance();
-    bufferManager.createBuffer(uboSize * m_lights.size(),
-                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                               &m_lightsUBO,
-                               &m_lightsUBOMemory);
-
-    for (auto& light : m_lights)
-      bufferManager.copyToBufferMemory(&light.ubo, m_lightsUBOMemory, uboSize, uboSize * light.idx);
-
-    this->recreateSwapChain(); // FIXME: Overkill
-
-    return idx;
-  }
-
+  // TODO: Merge both into addSceneObject
+  uint32_t addLight(Light& _light);
   uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat);
+  // TODO: deleteSceneObject
 
   inline void addMesh(const char* _path)
   {
@@ -135,8 +112,20 @@ public:
 
   inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
   {
+    if (_matIdx >= m_pMaterials.size()) return;
+
     m_pMaterials.at(_matIdx)->changeTexture(_path);
-    this->recreateSwapChain(); // FIXME: Overkill?
+
+    vkDeviceWaitIdle(m_logicalDevice);
+
+    std::vector<VkBuffer> dummyUBOs{};
+    for (auto& object : m_renderableObjects)
+      m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
+                                                       0,
+                                                       DescriptorFlags::TEXTURES,
+                                                       &object);
+
+    this->setupRenderCommands();
   }
 
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }
@@ -165,7 +154,15 @@ public:
     if (_objIdx >= m_renderableObjects.size()) return;
 
     m_renderableObjects.at(_objIdx).setMaterial( m_pMaterials.at(_matIdx) );
-    this->recreateSwapChain(); // FIXME: This is overkill
+
+    vkDeviceWaitIdle(m_logicalDevice);
+
+    std::vector<VkBuffer> dummyUBOs{};
+    m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
+                                                     0,
+                                                     DescriptorFlags::TEXTURES,
+                                                     &m_renderableObjects.at(_objIdx));
+    this->setupRenderCommands();
   }
 
   inline void setObjUpdateCB(const uint32_t _objIdx,
@@ -214,6 +211,8 @@ private:
   std::unordered_map<const char*, std::shared_ptr<Mesh>> m_pMeshes;
   // TODO: Texture map
 
+  VkBuffer       m_mvpnUBO;
+  VkDeviceMemory m_mvpnUBOMemory;
   VkBuffer       m_lightsUBO;
   VkDeviceMemory m_lightsUBOMemory;
 

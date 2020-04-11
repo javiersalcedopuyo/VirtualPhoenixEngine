@@ -78,18 +78,11 @@ void StdRenderPipelineManager::createLayouts(const size_t _lightCount)
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createLayouts - Failed to create the pipeline layout!");
 }
 
-void StdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* _obj,
-                                                           VkBuffer& _lightsUBO,
-                                                           const size_t _lightCount)
+void StdRenderPipelineManager::createDescriptorSet(VkDescriptorSet* _pDescriptorSet)
 {
-  if (_obj == nullptr) return;
+  if (_pDescriptorSet == nullptr) return;
 
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-
-  //if (m_descriptorPool == VK_NULL_HANDLE)
-  //  createDescriptorPool( m_descriptorPoolSizes[0].descriptorCount + 1,
-  //                        _lightCount,
-  //                        m_descriptorPoolSizes[0].descriptorCount + 1 );
 
   VkDescriptorSetAllocateInfo allocInfo{};
   allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -97,63 +90,87 @@ void StdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* 
   allocInfo.descriptorSetCount = 1;
   allocInfo.pSetLayouts        = &m_descriptorSetLayout;
 
-  if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &_obj->m_descriptorSet) != VK_SUCCESS)
+  if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, _pDescriptorSet) != VK_SUCCESS)
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createDescriptorSets - Failed!");
+}
 
-  // Populate descriptor set
-  // TODO: Use a single common UBO with offsets
-  VkDescriptorBufferInfo mvpnInfo{};
-  mvpnInfo.buffer = _obj->m_uniformBuffer;
-  mvpnInfo.offset = 0;
-  mvpnInfo.range  = VK_WHOLE_SIZE; // TODO: Update just the needed
+void StdRenderPipelineManager::updateObjDescriptorSet(std::vector<VkBuffer>& _UBOs,
+                                                      const size_t _lightCount,
+                                                      const DescriptorFlags _flags,
+                                                      StdRenderableObject* _obj)
+{
+  if (_obj == nullptr) return;
 
-  std::vector<VkDescriptorBufferInfo> lightsInfo;
-  lightsInfo.resize(_lightCount);
-  for (size_t i=0; i<lightsInfo.size(); ++i)
+  const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
+
+  VkWriteDescriptorSet                writeDS{};
+  std::vector<VkWriteDescriptorSet>   descriptorWrites{};
+
+  VkDescriptorBufferInfo              mvpnInfo{};
+  VkDescriptorImageInfo               imageInfo{};
+  std::vector<VkDescriptorBufferInfo> lightsInfo{};
+
+  if (_flags & DescriptorFlags::UBOS)
   {
-    lightsInfo.at(i).buffer = _lightsUBO;
-    lightsInfo.at(i).offset = i * sizeof(LightUBO);
-    lightsInfo.at(i).range  = sizeof(LightUBO);
+    mvpnInfo.buffer = _UBOs.at(0);
+    mvpnInfo.offset = _obj->m_UBOoffsetIdx * sizeof(ModelViewProjNormalUBO);
+    mvpnInfo.range  = sizeof(ModelViewProjNormalUBO);
+
+    writeDS = {};
+    writeDS.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDS.dstSet           = _obj->m_descriptorSet;
+    writeDS.dstBinding       = 0;
+    writeDS.dstArrayElement  = 0; // Descriptors can be arrays. First index
+    writeDS.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDS.descriptorCount  = 1;
+    writeDS.pBufferInfo      = &mvpnInfo;
+    writeDS.pImageInfo       = nullptr;
+    writeDS.pTexelBufferView = nullptr;
+
+    descriptorWrites.push_back(writeDS);
+
+    lightsInfo.resize(_lightCount);
+    for (size_t i=0; i<lightsInfo.size(); ++i)
+    {
+      lightsInfo.at(i).buffer = _UBOs.at(1);
+      lightsInfo.at(i).offset = i * sizeof(LightUBO);
+      lightsInfo.at(i).range  = sizeof(LightUBO);
+    }
+
+    writeDS = {};
+    writeDS.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDS.dstSet           = _obj->m_descriptorSet;
+    writeDS.dstBinding       = 1;
+    writeDS.dstArrayElement  = 0; // Descriptors can be arrays. First index
+    writeDS.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDS.descriptorCount  = lightsInfo.size();
+    writeDS.pBufferInfo      = lightsInfo.data();
+    writeDS.pImageInfo       = nullptr;
+    writeDS.pTexelBufferView = nullptr;
+
+    descriptorWrites.push_back(writeDS);
   }
 
-  VkDescriptorImageInfo imageInfo{};
-  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  imageInfo.imageView   = _obj->m_pMaterial->pTexture->getImageView();
-  imageInfo.sampler     = _obj->m_pMaterial->pTexture->getSampler();
+  if (_flags & DescriptorFlags::TEXTURES)
+  {
+    // TODO: Multiple textures (normal, specular, etc)
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.imageView   = _obj->m_pMaterial->pTexture->getImageView();
+    imageInfo.sampler     = _obj->m_pMaterial->pTexture->getSampler();
 
-  // TODO: Normal map
+    writeDS = {};
+    writeDS.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDS.dstSet           = _obj->m_descriptorSet;
+    writeDS.dstBinding       = 2;
+    writeDS.dstArrayElement  = 0; // Descriptors can be arrays. First index
+    writeDS.descriptorType   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDS.descriptorCount  = 1;
+    writeDS.pBufferInfo      = nullptr;
+    writeDS.pImageInfo       = &imageInfo;
+    writeDS.pTexelBufferView = nullptr;
 
-  std::array<VkWriteDescriptorSet, BINDING_COUNT> descriptorWrites{};
-  // MVPN matrices
-  descriptorWrites[0].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[0].dstSet               = _obj->m_descriptorSet;
-  descriptorWrites[0].dstBinding           = 0;
-  descriptorWrites[0].dstArrayElement      = 0; // Descriptors can be arrays. First index
-  descriptorWrites[0].descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptorWrites[0].descriptorCount      = 1;
-  descriptorWrites[0].pBufferInfo          = &mvpnInfo;
-  descriptorWrites[0].pImageInfo           = nullptr;
-  descriptorWrites[0].pTexelBufferView     = nullptr;
-  // Lights
-  descriptorWrites[1].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[1].dstSet               = _obj->m_descriptorSet;
-  descriptorWrites[1].dstBinding           = 1;
-  descriptorWrites[1].dstArrayElement      = 0; // Descriptors can be arrays. First index
-  descriptorWrites[1].descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptorWrites[1].descriptorCount      = lightsInfo.size();
-  descriptorWrites[1].pBufferInfo          = lightsInfo.data();
-  descriptorWrites[1].pImageInfo           = nullptr;
-  descriptorWrites[1].pTexelBufferView     = nullptr;
-  // Texture
-  descriptorWrites[2].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[2].dstSet               = _obj->m_descriptorSet;
-  descriptorWrites[2].dstBinding           = 2;
-  descriptorWrites[2].dstArrayElement      = 0; // Descriptors can be arrays. First index
-  descriptorWrites[2].descriptorType       = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptorWrites[2].descriptorCount      = 1;
-  descriptorWrites[2].pBufferInfo          = nullptr;
-  descriptorWrites[2].pImageInfo           = &imageInfo;
-  descriptorWrites[2].pTexelBufferView     = nullptr;
+    descriptorWrites.push_back(writeDS);
+  }
 
   vkUpdateDescriptorSets(logicalDevice,
                          descriptorWrites.size(),

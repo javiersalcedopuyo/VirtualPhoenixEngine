@@ -51,48 +51,59 @@ public:
 
   inline void setNear(float _near, bool _shouldUpdateProj = true)
   {
+    if (_near == near) return;
+
     near = _near;
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setFar(float _far, bool _shouldUpdateProj = true)
   {
+    if (_far == far) return;
+
     far = _far;
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setFoV(float _fov, bool _shouldUpdateProj = true)
   {
+    if (_fov == fieldOfView) return;
+
     fieldOfView = glm::radians(_fov);
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setAspectRatio(float _aspectRatio, bool _shouldUpdateProj = true)
   {
+    if (_aspectRatio == aspectRatio) return;
+
     aspectRatio = _aspectRatio;
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setPosition(glm::vec3 _newPos, bool _shouldUpdateView = true)
   {
-    position = _newPos;
+    if(_newPos == position) return;
 
+    position = _newPos;
     if (_shouldUpdateView)
       view = glm::lookAt(position, position + forward, up);
   }
 
   inline void setForward(glm::vec3 _newForward, bool _shouldUpdateView = true)
   {
-    forward = _newForward;
+    if (_newForward == forward) return;
 
+    forward = _newForward;
     if (_shouldUpdateView)
       view = glm::lookAt(position, position + forward, up);
   }
 
   inline void setUp(glm::vec3 _newUp, bool _shouldUpdateView = true)
   {
-    up = _newUp;
+    if (_newUp == up) return;
 
+    up = _newUp;
     if (_shouldUpdateView)
       view = glm::lookAt(position, position + forward, up);
   }
@@ -121,8 +132,8 @@ public:
     view    = glm::lookAt(position, position + forward, up);
   }
 
-  inline glm::mat4 getProjMat()  const { return projection; }
-  inline glm::mat4 getViewMat()  const { return view; }
+  inline glm::mat4& getProjMat() { return projection; }
+  inline glm::mat4& getViewMat() { return view; }
 
 private:
 

@@ -82,28 +82,103 @@ void Renderer::initVulkan()
   this->createDepthResources();
   this->createFrameBuffers();
 
-  MemoryBufferManager::getInstance().createBuffer(sizeof(LightUBO),
-                                                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                                  &m_lightsUBO,
-                                                  &m_lightsUBOMemory);
+  m_lightsUBO = VK_NULL_HANDLE;
+  m_mvpnUBO   = VK_NULL_HANDLE;
 
   this->setupRenderCommands();
   this->createSyncObjects();
+}
+
+uint32_t Renderer::addLight(Light& _light)
+{
+  uint32_t   idx     = m_lights.size();
+  const auto uboSize = sizeof(LightUBO);
+
+  m_lights.emplace_back(_light.type, idx, _light.ubo);
+
+  if (m_lightsUBO != VK_NULL_HANDLE)
+  {
+    vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
+    vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
+  }
+
+  auto& bufferManager = MemoryBufferManager::getInstance();
+  bufferManager.createBuffer(uboSize * m_lights.size(),
+                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             &m_lightsUBO,
+                             &m_lightsUBOMemory);
+
+  for (auto& light : m_lights)
+    bufferManager.copyToBufferMemory(&light.ubo, m_lightsUBOMemory, uboSize, uboSize * light.idx);
+
+  vkDeviceWaitIdle(m_logicalDevice);
+
+  m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
+                                                         m_lights.size() * m_renderableObjects.size(),
+                                                         1);
+
+  m_pRenderPipelineManager->recreateLayouts(m_lights.size());
+
+  std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
+  for (auto& object : m_renderableObjects)
+  {
+    m_pRenderPipelineManager->createDescriptorSet(&object.m_descriptorSet);
+    m_pRenderPipelineManager->updateObjDescriptorSet(ubos,
+                                                     m_lights.size(),
+                                                     DescriptorFlags::ALL,
+                                                     &object);
+  }
+
+  this->setupRenderCommands();
+
+  return idx;
 }
 
 uint32_t Renderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
 {
   if (m_pMeshes.count(_modelPath) == 0) this->addMesh(_modelPath);
 
-  m_renderableObjects.push_back( StdRenderableObject(_modelMat,
+  const auto idx = m_renderableObjects.size();
+
+  m_renderableObjects.push_back( StdRenderableObject(idx,
+                                                     _modelMat,
                                                      m_pMeshes.at(_modelPath),
                                                      m_pMaterials.at(0)) );
+  if (m_mvpnUBO != VK_NULL_HANDLE)
+  {
+    vkDestroyBuffer(m_logicalDevice, m_mvpnUBO, nullptr);
+    vkFreeMemory(m_logicalDevice, m_mvpnUBOMemory, nullptr);
+  }
 
-  this->recreateSwapChain(); // FIXME: This is overkill
+  auto& bufferManager = MemoryBufferManager::getInstance();
+  bufferManager.createBuffer(sizeof(ModelViewProjNormalUBO) * m_renderableObjects.size(),
+                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             &m_mvpnUBO,
+                             &m_mvpnUBOMemory);
 
-  return m_renderableObjects.size() - 1;
+  vkDeviceWaitIdle(m_logicalDevice);
+
+  m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
+                                                         m_lights.size() * m_renderableObjects.size(),
+                                                         1);
+
+  std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
+  for (auto& object : m_renderableObjects)
+  {
+    m_pRenderPipelineManager->createDescriptorSet(&object.m_descriptorSet);
+    m_pRenderPipelineManager->updateObjDescriptorSet(ubos,
+                                                     m_lights.size(),
+                                                     DescriptorFlags::ALL,
+                                                     &object);
+  }
+
+  this->setupRenderCommands();
+
+  return idx;
 }
 
 void Renderer::createSurface()
@@ -334,9 +409,6 @@ void Renderer::cleanUpSwapChain()
   for (auto& imageView : m_swapChainImageViews)
     vkDestroyImageView(m_logicalDevice, imageView, nullptr);
 
-  for (auto& obj : m_renderableObjects)
-    obj.cleanUniformBuffers();
-
   vkDestroySwapchainKHR(m_logicalDevice, m_swapChain, nullptr);
 }
 
@@ -361,20 +433,6 @@ void Renderer::recreateSwapChain()
   if (MSAA_ENABLED) this->createColorResources();
   this->createDepthResources();
   this->createFrameBuffers();
-
-  m_pRenderPipelineManager->createDescriptorPool(m_renderableObjects.size(),
-                                                 m_lights.size() * m_renderableObjects.size(),
-                                                 m_renderableObjects.size());
-
-  // NOTE: Right now this is overkill, but it will come handy if we use a single buffer for all
-  //       objects' MVPNs
-  m_pRenderPipelineManager->recreateLayouts(m_lights.size());
-
-  for (auto& object : m_renderableObjects)
-  {
-    object.createUniformBuffers();
-    m_pRenderPipelineManager->createOrUpdateDescriptorSet(&object, m_lightsUBO, m_lights.size());
-  }
 
   this->setupRenderCommands();
 }
@@ -585,6 +643,11 @@ void Renderer::setupRenderCommands()
 
 void Renderer::updateScene()
 {
+  if (!m_pCamera) m_pCamera.reset( new Camera() );
+
+  m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
+                             static_cast<float>(m_swapChainExtent.height) );
+
   //updateLights();
   this->updateObjects();
 }
@@ -595,11 +658,6 @@ void Renderer::updateLights()
 
 void Renderer::updateObjects()
 {
-  if (!m_pCamera) m_pCamera.reset( new Camera() );
-
-  m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
-                             static_cast<float>(m_swapChainExtent.height) );
-
   ModelViewProjNormalUBO mvpnUBO{};
   mvpnUBO.view = m_pCamera->getViewMat();
   mvpnUBO.proj = m_pCamera->getProjMat();
@@ -613,8 +671,9 @@ void Renderer::updateObjects()
 
     // TODO: Update just the needed fields instead of everything
     MemoryBufferManager::getInstance().copyToBufferMemory(&mvpnUBO,
-                                                          object.m_uniformBufferMemory,
-                                                          sizeof(mvpnUBO));
+                                                          m_mvpnUBOMemory,
+                                                          sizeof(mvpnUBO),
+                                                          object.m_UBOoffsetIdx * sizeof(mvpnUBO));
   }
 }
 
@@ -751,7 +810,9 @@ void Renderer::cleanUp()
   for (auto& pathAndMesh : m_pMeshes)           pathAndMesh.second.reset();
   for (auto& mat         : m_pMaterials)        mat.reset();
 
+  vkDestroyBuffer(m_logicalDevice, m_mvpnUBO, nullptr);
   vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
+  vkFreeMemory(m_logicalDevice, m_mvpnUBOMemory, nullptr);
   vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
 
   m_pRenderPipelineManager.reset();

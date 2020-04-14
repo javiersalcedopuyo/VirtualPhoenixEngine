@@ -144,7 +144,7 @@ uint32_t Renderer::createObject(const char* _modelPath, const glm::mat4& _modelM
 
   m_renderableObjects.push_back( StdRenderableObject(idx,
                                                      _modelMat,
-                                                     m_pMeshes.at(_modelPath),
+                                                     _modelPath,
                                                      m_pMaterials.at(0)) );
   if (m_mvpnUBO != VK_NULL_HANDLE)
   {
@@ -600,12 +600,20 @@ void Renderer::setupRenderCommands()
 
     for (const auto& object : m_renderableObjects)
     {
+      if (m_pMeshes.count( object.m_meshPath.c_str() ) == 0)
+      {
+        std::cout << "WARNING: Renderer::setupRenderCommands - Object has no mesh!" << std::endl;
+        continue;
+      }
+
+      const int numLights = m_lights.size();
+      auto mesh = m_pMeshes.at( object.m_meshPath.c_str() );
+
       vkCmdBindPipeline(commandBufferManager.getBufferAt(i),
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
                         m_pRenderPipelineManager->getOrCreatePipeline(m_swapChainExtent,
                                                                       *object.m_pMaterial));
 
-      const int numLights = m_lights.size();
       vkCmdPushConstants(commandBufferManager.getBufferAt(i),
                          m_pRenderPipelineManager->getPipelineLayout(),
                          VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -614,12 +622,12 @@ void Renderer::setupRenderCommands()
                          &numLights);
 
       // Bind the vertex buffers
-      VkBuffer     vertexBuffers[] = {object.m_pMesh->m_vertexBuffer};
+      VkBuffer     vertexBuffers[] = {mesh->m_vertexBuffer};
       VkDeviceSize offsets[]       = {0};
       vkCmdBindVertexBuffers(commandBufferManager.getBufferAt(i), 0, 1, vertexBuffers, offsets);
 
       vkCmdBindIndexBuffer(commandBufferManager.getBufferAt(i),
-                           object.m_pMesh->m_indexBuffer,
+                           mesh->m_indexBuffer,
                            0,
                            VK_INDEX_TYPE_UINT32);
 
@@ -633,7 +641,7 @@ void Renderer::setupRenderCommands()
                               nullptr);
 
       vkCmdDrawIndexed(commandBufferManager.getBufferAt(i),
-                       object.m_pMesh->m_indices.size(),
+                       mesh->m_indices.size(),
                        1, 0, 0, 0);
     }
 

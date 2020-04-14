@@ -22,11 +22,11 @@ private:
   StdRenderableObject() = delete;
   StdRenderableObject(uint32_t _idx,
                       const glm::mat4&  _model,
-                      std::shared_ptr<Mesh>& _mesh,
+                      std::string _meshPath,
                       std::shared_ptr<StdMaterial>& _pMaterial) :
     m_UBOoffsetIdx(_idx),
     m_model(_model),
-    m_pMesh(_mesh),
+    m_meshPath(_meshPath),
     m_pMaterial(_pMaterial),
     m_descriptorSet(VK_NULL_HANDLE),
     m_updateCallback( [](const float, glm::mat4&){} )
@@ -38,8 +38,8 @@ public:
   glm::mat4 m_model;
 
   // Misc
-  std::shared_ptr<Mesh>        m_pMesh;
-  std::shared_ptr<StdMaterial> m_pMaterial;
+  std::string m_meshPath;
+  std::shared_ptr<StdMaterial> m_pMaterial; // TODO: Change this for its index?
   VkDescriptorSet              m_descriptorSet;
 
   std::function<void(const float, glm::mat4&)> m_updateCallback;
@@ -52,17 +52,12 @@ public:
     m_pMaterial = _newMat;
   }
 
-  inline void setMesh(std::shared_ptr<Mesh>& _newMesh)
+  inline void setMesh(const char* _meshPath)
   {
-    m_pMesh.reset();
-    m_pMesh = _newMesh;
+    m_meshPath.replace(0, m_meshPath.size(), _meshPath);
   }
 
-  inline void cleanUp()
-  {
-    m_pMesh.reset();
-    m_pMaterial.reset();
-  }
+  inline void cleanUp() { m_pMaterial.reset(); }
 };
 }
 #endif

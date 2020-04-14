@@ -208,7 +208,7 @@ private:
   std::vector<Light> m_lights;
   std::vector<StdRenderableObject> m_renderableObjects;
   std::vector<std::shared_ptr<StdMaterial>> m_pMaterials;
-  std::unordered_map<const char*, std::shared_ptr<Mesh>> m_pMeshes;
+  std::unordered_map<std::string, std::shared_ptr<Mesh>> m_pMeshes;
   // TODO: Texture map
 
   VkBuffer       m_mvpnUBO;

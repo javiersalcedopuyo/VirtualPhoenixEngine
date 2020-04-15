@@ -30,8 +30,7 @@
 #include <functional>
 
 #include "Managers/VPDeviceManagement.hpp"
-#include "Managers/VPStdRenderPipelineManager.hpp"
-#include "VPCamera.hpp"
+#include "VPScene.hpp"
 #include "VPUserInputController.hpp"
 
 namespace vpe
@@ -91,41 +90,46 @@ public:
   void cleanUp();
 
   // TODO: Merge both into addSceneObject
-  uint32_t addLight(Light& _light);
-  uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat);
-  // TODO: deleteSceneObject
-
-  inline void addMesh(const char* _path)
+  inline uint32_t addLight(Light& _light)
   {
-    if (m_pMeshes.count(_path) > 0) return;
+    auto idx = m_scene.addLight(_light);
+    this->setupRenderCommands();
 
-    m_pMeshes.emplace( _path, new Mesh(_path) );
+    return idx;
   }
+
+  inline uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat)
+  {
+    auto idx = m_scene.createObject(_modelPath, _modelMat);
+    this->setupRenderCommands();
+
+    return idx;
+  }
+  // TODO: deleteSceneObject
 
   inline uint32_t createMaterial(const char* _vertShaderPath,
                                  const char* _fragShaderPath,
                                  const char* _texturePath)
   {
-    m_pMaterials.emplace_back(new StdMaterial(_vertShaderPath, _fragShaderPath, _texturePath));
-    return m_pMaterials.size() - 1;
+    return m_scene.createMaterial(_vertShaderPath, _fragShaderPath, _texturePath);
   }
 
   inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
   {
-    if (_matIdx >= m_pMaterials.size()) return;
-
-    m_pMaterials.at(_matIdx)->changeTexture(_path);
-
-    vkDeviceWaitIdle(m_logicalDevice);
-
-    std::vector<VkBuffer> dummyUBOs{};
-    for (auto& object : m_renderableObjects)
-      m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
-                                                       0,
-                                                       DescriptorFlags::TEXTURES,
-                                                       &object);
-
+    m_scene.changeMaterialTexture(_path, _matIdx);
     this->setupRenderCommands();
+  }
+
+  inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
+  {
+    m_scene.changeObjectMaterial(_objIdx, _matIdx);
+    this->setupRenderCommands();
+  }
+
+  inline void setObjUpdateCB(const uint32_t _objIdx,
+                             std::function<void(const float, glm::mat4&)> _callback)
+  {
+    m_scene.setObjUpdateCB(_objIdx, _callback);
   }
 
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }
@@ -149,34 +153,13 @@ public:
     }
   }
 
-  inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
-  {
-    if (_objIdx >= m_renderableObjects.size()) return;
-
-    m_renderableObjects.at(_objIdx).setMaterial( m_pMaterials.at(_matIdx) );
-
-    vkDeviceWaitIdle(m_logicalDevice);
-
-    std::vector<VkBuffer> dummyUBOs{};
-    m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
-                                                     0,
-                                                     DescriptorFlags::TEXTURES,
-                                                     &m_renderableObjects.at(_objIdx));
-    this->setupRenderCommands();
-  }
-
-  inline void setObjUpdateCB(const uint32_t _objIdx,
-                             std::function<void(const float, glm::mat4&)> _callback)
-  {
-    if (_objIdx >= m_renderableObjects.size()) return;
-    m_renderableObjects.at(_objIdx).m_updateCallback = _callback;
-  }
-
 private:
   GLFWwindow*             m_pWindow;
 
   std::shared_ptr<Camera> m_pCamera; // TODO: Multi-camera
   VkSurfaceKHR            m_surface;
+
+  Scene m_scene;
 
   float m_deltaTime;
 
@@ -196,7 +179,7 @@ private:
   std::vector<VkImageView> m_swapChainImageViews;
 
   VkRenderPass m_renderPass;
-  std::unique_ptr<StdRenderPipelineManager> m_pRenderPipelineManager;
+  std::shared_ptr<StdRenderPipelineManager> m_pRenderPipelineManager;
   std::vector<VkFramebuffer> m_swapChainFrameBuffers;
 
   size_t m_currentFrame;
@@ -204,17 +187,6 @@ private:
   std::vector<VkSemaphore> m_renderFinishedSemaphores;
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
-
-  std::vector<Light> m_lights;
-  std::vector<StdRenderableObject> m_renderableObjects;
-  std::vector<std::shared_ptr<StdMaterial>> m_pMaterials;
-  std::unordered_map<std::string, std::shared_ptr<Mesh>> m_pMeshes;
-  // TODO: Texture map
-
-  VkBuffer       m_mvpnUBO;
-  VkDeviceMemory m_mvpnUBOMemory;
-  VkBuffer       m_lightsUBO;
-  VkDeviceMemory m_lightsUBOMemory;
 
   VkImage        m_depthImage;
   VkDeviceMemory m_depthMemory;
@@ -255,9 +227,13 @@ private:
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
 
-  void updateScene();
-  void updateLights();
-  void updateObjects();
+  inline void updateCamera()
+  {
+    if (!m_pCamera) m_pCamera.reset( new Camera() );
+
+    m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
+                              static_cast<float>(m_swapChainExtent.height) );
+  }
 
   void     createDepthResources();
   VkFormat findDepthFormat();

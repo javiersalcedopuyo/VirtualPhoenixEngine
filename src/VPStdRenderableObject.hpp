@@ -16,7 +16,7 @@ struct alignas(32) ModelViewProjNormalUBO
 
 class StdRenderableObject
 {
-friend class Renderer;
+friend class Scene;
 
 private:
   StdRenderableObject() = delete;

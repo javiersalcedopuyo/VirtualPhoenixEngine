@@ -82,103 +82,8 @@ void Renderer::initVulkan()
   this->createDepthResources();
   this->createFrameBuffers();
 
-  m_lightsUBO = VK_NULL_HANDLE;
-  m_mvpnUBO   = VK_NULL_HANDLE;
-
   this->setupRenderCommands();
   this->createSyncObjects();
-}
-
-uint32_t Renderer::addLight(Light& _light)
-{
-  uint32_t   idx     = m_lights.size();
-  const auto uboSize = sizeof(LightUBO);
-
-  m_lights.emplace_back(_light.type, idx, _light.ubo);
-
-  if (m_lightsUBO != VK_NULL_HANDLE)
-  {
-    vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
-    vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
-  }
-
-  auto& bufferManager = MemoryBufferManager::getInstance();
-  bufferManager.createBuffer(uboSize * m_lights.size(),
-                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                             &m_lightsUBO,
-                             &m_lightsUBOMemory);
-
-  for (auto& light : m_lights)
-    bufferManager.copyToBufferMemory(&light.ubo, m_lightsUBOMemory, uboSize, uboSize * light.idx);
-
-  vkDeviceWaitIdle(m_logicalDevice);
-
-  m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
-                                                         m_lights.size() * m_renderableObjects.size(),
-                                                         1);
-
-  m_pRenderPipelineManager->recreateLayouts(m_lights.size());
-
-  std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
-  for (auto& object : m_renderableObjects)
-  {
-    m_pRenderPipelineManager->createDescriptorSet(&object.m_descriptorSet);
-    m_pRenderPipelineManager->updateObjDescriptorSet(ubos,
-                                                     m_lights.size(),
-                                                     DescriptorFlags::ALL,
-                                                     &object);
-  }
-
-  this->setupRenderCommands();
-
-  return idx;
-}
-
-uint32_t Renderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
-{
-  if (m_pMeshes.count(_modelPath) == 0) this->addMesh(_modelPath);
-
-  const auto idx = m_renderableObjects.size();
-
-  m_renderableObjects.push_back( StdRenderableObject(idx,
-                                                     _modelMat,
-                                                     _modelPath,
-                                                     m_pMaterials.at(0)) );
-  if (m_mvpnUBO != VK_NULL_HANDLE)
-  {
-    vkDestroyBuffer(m_logicalDevice, m_mvpnUBO, nullptr);
-    vkFreeMemory(m_logicalDevice, m_mvpnUBOMemory, nullptr);
-  }
-
-  auto& bufferManager = MemoryBufferManager::getInstance();
-  bufferManager.createBuffer(sizeof(ModelViewProjNormalUBO) * m_renderableObjects.size(),
-                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                             &m_mvpnUBO,
-                             &m_mvpnUBOMemory);
-
-  vkDeviceWaitIdle(m_logicalDevice);
-
-  m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
-                                                         m_lights.size() * m_renderableObjects.size(),
-                                                         1);
-
-  std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
-  for (auto& object : m_renderableObjects)
-  {
-    m_pRenderPipelineManager->createDescriptorSet(&object.m_descriptorSet);
-    m_pRenderPipelineManager->updateObjDescriptorSet(ubos,
-                                                     m_lights.size(),
-                                                     DescriptorFlags::ALL,
-                                                     &object);
-  }
-
-  this->setupRenderCommands();
-
-  return idx;
 }
 
 void Renderer::createSurface()
@@ -221,7 +126,8 @@ void Renderer::drawFrame()
   VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-  this->updateScene();
+  this->updateCamera();
+  m_scene.update(*m_pCamera, m_deltaTime);
 
   VkSubmitInfo submitInfo{};
   submitInfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -532,7 +438,9 @@ void Renderer::createRenderPass()
 
 void Renderer::createGraphicsPipelineManager()
 {
-  m_pRenderPipelineManager.reset( new StdRenderPipelineManager(m_renderPass, m_lights.size()) );
+  m_pRenderPipelineManager.reset( new StdRenderPipelineManager(m_renderPass, m_scene.getLightCount()) );
+
+  m_scene.setRenderPipelineManager(m_pRenderPipelineManager);
 }
 
 void Renderer::createFrameBuffers()
@@ -598,16 +506,12 @@ void Renderer::setupRenderCommands()
                          &renderPassInfo,
                          VK_SUBPASS_CONTENTS_INLINE);
 
-    for (const auto& object : m_renderableObjects)
+    for (const auto& object : m_scene.m_renderableObjects)
     {
-      if (m_pMeshes.count( object.m_meshPath.c_str() ) == 0)
-      {
-        std::cout << "WARNING: Renderer::setupRenderCommands - Object has no mesh!" << std::endl;
-        continue;
-      }
+      auto mesh = m_scene.getObjectMesh(object);
+      if (mesh.get() == nullptr) continue;
 
-      const int numLights = m_lights.size();
-      auto mesh = m_pMeshes.at( object.m_meshPath.c_str() );
+      const int numLights = m_scene.getLightCount();
 
       vkCmdBindPipeline(commandBufferManager.getBufferAt(i),
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -646,42 +550,6 @@ void Renderer::setupRenderCommands()
     }
 
     commandBufferManager.endRecordingCommand(i);
-  }
-}
-
-void Renderer::updateScene()
-{
-  if (!m_pCamera) m_pCamera.reset( new Camera() );
-
-  m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
-                             static_cast<float>(m_swapChainExtent.height) );
-
-  //updateLights();
-  this->updateObjects();
-}
-
-void Renderer::updateLights()
-{ // TODO:
-}
-
-void Renderer::updateObjects()
-{
-  ModelViewProjNormalUBO mvpnUBO{};
-  mvpnUBO.view = m_pCamera->getViewMat();
-  mvpnUBO.proj = m_pCamera->getProjMat();
-
-  for (auto& object : m_renderableObjects)
-  {
-    object.update(m_deltaTime);
-
-    mvpnUBO.modelView = mvpnUBO.view * object.m_model;
-    mvpnUBO.normal    = glm::transpose(glm::inverse(mvpnUBO.modelView));
-
-    // TODO: Update just the needed fields instead of everything
-    MemoryBufferManager::getInstance().copyToBufferMemory(&mvpnUBO,
-                                                          m_mvpnUBOMemory,
-                                                          sizeof(mvpnUBO),
-                                                          object.m_UBOoffsetIdx * sizeof(mvpnUBO));
   }
 }
 
@@ -814,15 +682,7 @@ void Renderer::cleanUp()
 
   this->cleanUpSwapChain();
 
-  for (auto& obj         : m_renderableObjects) obj.cleanUp();
-  for (auto& pathAndMesh : m_pMeshes)           pathAndMesh.second.reset();
-  for (auto& mat         : m_pMaterials)        mat.reset();
-
-  vkDestroyBuffer(m_logicalDevice, m_mvpnUBO, nullptr);
-  vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
-  vkFreeMemory(m_logicalDevice, m_mvpnUBOMemory, nullptr);
-  vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
-
+  m_scene.cleanUp();
   m_pRenderPipelineManager.reset();
 
   CommandBufferManager::getInstance().destroyCommandPool();

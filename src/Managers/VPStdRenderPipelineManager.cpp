@@ -19,7 +19,7 @@ VkShaderModule StdRenderPipelineManager::createShaderModule(const std::vector<ch
   return result;
 }
 
-void StdRenderPipelineManager::createLayouts(const size_t _lightCount)
+void StdRenderPipelineManager::createLayout(const size_t _lightCount)
 {
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 

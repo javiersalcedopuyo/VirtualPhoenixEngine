@@ -126,9 +126,6 @@ void Renderer::drawFrame()
   VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-  this->updateCamera();
-  m_scene.update(*m_pCamera, m_deltaTime);
-
   VkSubmitInfo submitInfo{};
   submitInfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.waitSemaphoreCount   = 1;
@@ -195,6 +192,11 @@ void Renderer::renderLoop()
 
     userInputCtx.scrollY = *m_pUserInputController->m_pScrollY;
     m_pUserInputController->processInput(userInputCtx);
+
+    this->updateCamera();
+    m_scene.update(*m_pCamera, m_deltaTime);
+
+    if (m_scene.anyDescriptorUpdated()) this->setupRenderCommands();
 
     this->drawFrame();
   }

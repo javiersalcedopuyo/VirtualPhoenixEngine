@@ -2,17 +2,92 @@
 
 namespace vpe
 {
-uint32_t Scene::createObject(const char* _modelPath, const glm::mat4& _modelMat)
+void Scene::scheduledCreations()
+{
+  bool shouldRecreateLayout      = !m_scheduledLightCreationData.empty();
+  bool shouldRecreateDescriptors = !m_scheduledObjInitData.empty() || shouldRecreateLayout;
+
+  while (!m_scheduledLightCreationData.empty())
+  {
+    this->addLight( m_scheduledLightCreationData.front() );
+    m_scheduledLightCreationData.pop();
+  }
+
+  while (!m_scheduledObjInitData.empty())
+  {
+    auto& initData = m_scheduledObjInitData.front();
+    this->createObject(initData.meshPath, initData.modelMat);
+    m_scheduledObjInitData.pop();
+  }
+
+  if (shouldRecreateDescriptors)
+  {
+    auto& device = *MemoryBufferManager::getInstance().m_pLogicalDevice;
+    vkDeviceWaitIdle(device); // FIXME: I don't like this. Should I use the fences/semaphores?
+
+    if (shouldRecreateLayout)
+      m_pRenderPipelineManager->recreateLayout(m_lights.size());
+
+    this->recreateSceneDescriptors();
+  }
+}
+
+void Scene::scheduledChanges()
+{
+  while (!m_scheduledObjChangesData.empty())
+  {
+    auto& changes = m_scheduledObjChangesData.front();
+
+    if (changes.objectIdx < m_renderableObjects.size())
+    {
+      if (changes.updateCallback)
+        m_renderableObjects.at(changes.objectIdx).m_updateCallback = changes.updateCallback;
+
+      if (changes.materialIdx < UINT32_MAX && changes.materialIdx < m_pMaterials.size())
+        this->changeObjectMaterial(changes.objectIdx, changes.materialIdx);
+    }
+
+    m_scheduledObjChangesData.pop();
+  }
+
+  while (!m_scheduledMaterialChangesData.empty())
+  {
+    auto& changes = m_scheduledMaterialChangesData.front();
+    if (changes.idx < m_pMaterials.size())
+      this->changeMaterialTexture(changes.idx, changes.texturePath);
+
+    m_scheduledMaterialChangesData.pop();
+  }
+}
+
+void Scene::recreateSceneDescriptors()
+{
+  m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
+                                                         m_lights.size() * m_renderableObjects.size(),
+                                                         1);
+
+  std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
+  for (auto& object : m_renderableObjects)
+  {
+    m_pRenderPipelineManager->createDescriptorSet(&object.m_descriptorSet);
+    m_pRenderPipelineManager->updateObjDescriptorSet(ubos,
+                                                     m_lights.size(),
+                                                     DescriptorFlags::ALL,
+                                                     &object);
+  }
+}
+
+void Scene::createObject(const char* _meshPath, const glm::mat4& _modelMat)
 {
   auto logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
-  if (m_pMeshes.count(_modelPath) == 0) this->addMesh(_modelPath);
+  if (m_pMeshes.count(_meshPath) == 0) this->addMesh(_meshPath);
 
   const auto idx = m_renderableObjects.size();
 
   m_renderableObjects.push_back( StdRenderableObject(idx,
                                                      _modelMat,
-                                                     _modelPath,
+                                                     _meshPath,
                                                      m_pMaterials.at(0)) );
   if (m_mvpnUBO != VK_NULL_HANDLE)
   {
@@ -28,27 +103,10 @@ uint32_t Scene::createObject(const char* _modelPath, const glm::mat4& _modelMat)
                              &m_mvpnUBO,
                              &m_mvpnUBOMemory);
 
-  auto device = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-  vkDeviceWaitIdle(device);
-
-  m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
-                                                         m_lights.size() * m_renderableObjects.size(),
-                                                         1);
-
-  std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
-  for (auto& object : m_renderableObjects)
-  {
-    m_pRenderPipelineManager->createDescriptorSet(&object.m_descriptorSet);
-    m_pRenderPipelineManager->updateObjDescriptorSet(ubos,
-                                                     m_lights.size(),
-                                                     DescriptorFlags::ALL,
-                                                     &object);
-  }
-
-  return idx;
+  m_descriptorsChanged = true;
 }
 
-uint32_t Scene::addLight(Light& _light)
+void Scene::addLight(Light& _light)
 {
   auto logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -74,29 +132,10 @@ uint32_t Scene::addLight(Light& _light)
   for (auto& light : m_lights)
     bufferManager.copyToBufferMemory(&light.ubo, m_lightsUBOMemory, uboSize, uboSize * light.idx);
 
-  auto device = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-  vkDeviceWaitIdle(device);
-
-  m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
-                                                         m_lights.size() * m_renderableObjects.size(),
-                                                         1);
-
-  m_pRenderPipelineManager->recreateLayouts(m_lights.size());
-
-  std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
-  for (auto& object : m_renderableObjects)
-  {
-    m_pRenderPipelineManager->createDescriptorSet(&object.m_descriptorSet);
-    m_pRenderPipelineManager->updateObjDescriptorSet(ubos,
-                                                     m_lights.size(),
-                                                     DescriptorFlags::ALL,
-                                                     &object);
-  }
-
-  return idx;
+  m_descriptorsChanged = true;
 }
 
-void Scene::changeMaterialTexture(const char* _texturePath, const uint32_t _materialIdx)
+void Scene::changeMaterialTexture(const uint32_t _materialIdx, const char* _texturePath)
 {
   if (_materialIdx >= m_pMaterials.size()) return;
 
@@ -107,10 +146,15 @@ void Scene::changeMaterialTexture(const char* _texturePath, const uint32_t _mate
 
   std::vector<VkBuffer> dummyUBOs{};
   for (auto& object : m_renderableObjects)
+  {
+    if (object.m_pMaterial != m_pMaterials.at(_materialIdx)) continue;
+
     m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
                                                      0,
                                                      DescriptorFlags::TEXTURES,
                                                      &object);
+    m_descriptorsChanged = true;
+  }
 }
 
 void Scene::changeObjectMaterial(const uint32_t _objectIdx, const uint32_t _materialIdx)
@@ -119,14 +163,13 @@ void Scene::changeObjectMaterial(const uint32_t _objectIdx, const uint32_t _mate
 
   m_renderableObjects.at(_objectIdx).setMaterial( m_pMaterials.at(_materialIdx) );
 
-  auto device = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-  vkDeviceWaitIdle(device);
-
   std::vector<VkBuffer> dummyUBOs{};
   m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
                                                    0,
                                                    DescriptorFlags::TEXTURES,
                                                    &m_renderableObjects.at(_objectIdx));
+
+  m_descriptorsChanged = true;
 }
 
 void Scene::updateObjects(Camera& _camera, float _deltaTime)

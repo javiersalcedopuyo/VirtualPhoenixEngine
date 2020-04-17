@@ -42,7 +42,7 @@ public:
     m_descriptorPoolSizes[2].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     m_descriptorPoolSizes[2].descriptorCount = 0;
 
-    createLayouts(_lightsCount);
+    createLayout(_lightsCount);
   };
 
   ~StdRenderPipelineManager()
@@ -89,13 +89,13 @@ public:
     vkFreeDescriptorSets(device, m_descriptorPool, 1, _pDescriptorSet);
   }
 
-  inline void recreateLayouts(size_t _lightsCount)
+  inline void recreateLayout(size_t _lightsCount)
   {
     const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
     vkDestroyDescriptorSetLayout(logicalDevice, m_descriptorSetLayout, nullptr);
     vkDestroyPipelineLayout(logicalDevice, m_pipelineLayout, nullptr);
 
-    createLayouts(_lightsCount);
+    createLayout(_lightsCount);
     // The pipelines are no longer valid, since they were created with an old layout
     // Is this overkill?
     this->cleanUp();
@@ -167,7 +167,7 @@ private:
   std::array<VkDescriptorPoolSize, BINDING_COUNT> m_descriptorPoolSizes;
   VkDescriptorPool                                m_descriptorPool;
 
-  void createLayouts(const size_t _lightCount);
+  void createLayout(const size_t _lightCount);
 };
 }
 #endif

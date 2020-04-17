@@ -92,18 +92,12 @@ public:
   // TODO: Merge both into addSceneObject
   inline uint32_t addLight(Light& _light)
   {
-    auto idx = m_scene.addLight(_light);
-    this->setupRenderCommands();
-
-    return idx;
+    return m_scene.scheduleLightCreation(_light);
   }
 
-  inline uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat)
+  inline uint32_t createObject(const char* _meshPath, const glm::mat4& _modelMat)
   {
-    auto idx = m_scene.createObject(_modelPath, _modelMat);
-    this->setupRenderCommands();
-
-    return idx;
+    return m_scene.scheduleObjCreation(_meshPath, _modelMat);
   }
   // TODO: deleteSceneObject
 
@@ -116,14 +110,12 @@ public:
 
   inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
   {
-    m_scene.changeMaterialTexture(_path, _matIdx);
-    this->setupRenderCommands();
+    m_scene.scheduleMaterialTextureChange(_matIdx, _path);
   }
 
   inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
   {
-    m_scene.changeObjectMaterial(_objIdx, _matIdx);
-    this->setupRenderCommands();
+    m_scene.scheduleObjMaterialChange(_objIdx, _matIdx);
   }
 
   inline void setObjUpdateCB(const uint32_t _objIdx,

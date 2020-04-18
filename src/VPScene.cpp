@@ -5,7 +5,7 @@ namespace vpe
 void Scene::scheduledCreations()
 {
   bool shouldRecreateLayout      = !m_scheduledLightCreationData.empty();
-  bool shouldRecreateDescriptors = !m_scheduledObjInitData.empty() || shouldRecreateLayout;
+  bool shouldRecreateDescriptors = !m_scheduledObjCreationMeshes.empty() || shouldRecreateLayout;
 
   while (!m_scheduledLightCreationData.empty())
   {
@@ -13,11 +13,10 @@ void Scene::scheduledCreations()
     m_scheduledLightCreationData.pop();
   }
 
-  while (!m_scheduledObjInitData.empty())
+  while (!m_scheduledObjCreationMeshes.empty())
   {
-    auto& initData = m_scheduledObjInitData.front();
-    this->createObject(initData.meshPath, initData.modelMat);
-    m_scheduledObjInitData.pop();
+    this->createObject( m_scheduledObjCreationMeshes.front() );
+    m_scheduledObjCreationMeshes.pop();
   }
 
   if (shouldRecreateDescriptors)
@@ -40,8 +39,14 @@ void Scene::scheduledChanges()
 
     if (changes.objectIdx < m_renderableObjects.size())
     {
+      auto& obj = m_renderableObjects.at(changes.objectIdx);
+
+      obj.m_transform.translate(changes.translation);
+      obj.m_transform.rotate(changes.rotationEuler);
+      obj.m_transform.scale(changes.scaleFactors);
+
       if (changes.updateCallback)
-        m_renderableObjects.at(changes.objectIdx).m_updateCallback = changes.updateCallback;
+        obj.m_updateCallback = changes.updateCallback;
 
       if (changes.materialIdx < UINT32_MAX && changes.materialIdx < m_pMaterials.size())
         this->changeObjectMaterial(changes.objectIdx, changes.materialIdx);
@@ -77,7 +82,7 @@ void Scene::recreateSceneDescriptors()
   }
 }
 
-void Scene::createObject(const char* _meshPath, const glm::mat4& _modelMat)
+void Scene::createObject(const char* _meshPath)
 {
   auto logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -85,10 +90,7 @@ void Scene::createObject(const char* _meshPath, const glm::mat4& _modelMat)
 
   const auto idx = m_renderableObjects.size();
 
-  m_renderableObjects.push_back( StdRenderableObject(idx,
-                                                     _modelMat,
-                                                     _meshPath,
-                                                     m_pMaterials.at(0)) );
+  m_renderableObjects.push_back( StdRenderableObject(idx, _meshPath, m_pMaterials.at(0)) );
   if (m_mvpnUBO != VK_NULL_HANDLE)
   {
     vkDestroyBuffer(logicalDevice, m_mvpnUBO, nullptr);
@@ -172,7 +174,7 @@ void Scene::changeObjectMaterial(const uint32_t _objectIdx, const uint32_t _mate
   m_descriptorsChanged = true;
 }
 
-void Scene::updateObjects(Camera& _camera, float _deltaTime)
+void Scene::updateObjects(const Camera& _camera, float _deltaTime)
 {
   ModelViewProjNormalUBO mvpnUBO{};
   mvpnUBO.view = _camera.getViewMat();
@@ -182,10 +184,9 @@ void Scene::updateObjects(Camera& _camera, float _deltaTime)
   {
     object.update(_deltaTime);
 
-    mvpnUBO.modelView = mvpnUBO.view * object.m_model;
+    mvpnUBO.modelView = mvpnUBO.view * object.m_transform.getModelMatrix();
     mvpnUBO.normal    = glm::transpose(glm::inverse(mvpnUBO.modelView));
 
-    // TODO: Update just the needed fields instead of everything
     MemoryBufferManager::getInstance().copyToBufferMemory(&mvpnUBO,
                                                           m_mvpnUBOMemory,
                                                           sizeof(mvpnUBO),

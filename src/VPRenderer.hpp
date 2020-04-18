@@ -95,9 +95,9 @@ public:
     return m_scene.scheduleLightCreation(_light);
   }
 
-  inline uint32_t createObject(const char* _meshPath, const glm::mat4& _modelMat)
+  inline uint32_t createObject(const char* _meshPath)
   {
-    return m_scene.scheduleObjCreation(_meshPath, _modelMat);
+    return m_scene.scheduleObjCreation(_meshPath);
   }
   // TODO: deleteSceneObject
 
@@ -119,9 +119,14 @@ public:
   }
 
   inline void setObjUpdateCB(const uint32_t _objIdx,
-                             std::function<void(const float, glm::mat4&)> _callback)
+                             std::function<void(const float, Transform&)> _callback)
   {
-    m_scene.setObjUpdateCB(_objIdx, _callback);
+    m_scene.scheduleObjCBChange(_objIdx, _callback);
+  }
+
+  inline void transformObject(const uint32_t _objIdx, glm::vec3 _value, TransformOperation _op)
+  {
+    m_scene.scheduleObjTransform(_objIdx, _value, _op);
   }
 
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }

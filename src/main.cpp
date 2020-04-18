@@ -50,52 +50,40 @@ int main()
     light1.ubo.position  = glm::vec3(1, 2, -1);
     light1.ubo.intensity = 1.5;
 
-    glm::mat4 modelMat1 = glm::mat4(1);
-    glm::mat4 modelMat2 = glm::mat4(1);
-
-    modelMat1 = glm::translate(modelMat1, glm::vec3(-1, 0, 0));
-    modelMat2 = glm::translate(modelMat2, glm::vec3( 1, 0, 0));
-
-    //modelMat1 = glm::scale(modelMat1, glm::vec3(0.5));
-    //modelMat2 = glm::scale(modelMat2, glm::vec3(0.5));
-
-    modelMat1 = glm::rotate(modelMat1,
-                            glm::radians(90.0f),          // Rotation angle
-                            vpe::UP); // Up axis
-    modelMat2 = glm::rotate(modelMat2,
-                            glm::radians(90.0f),          // Rotation angle
-                            vpe::UP); // Up axis
-
-    uint32_t dragonIdx1 = renderer.createObject("../Models/teapot.obj", modelMat1);
+    uint32_t dragonIdx1 = renderer.createObject("../Models/teapot.obj");
+    renderer.transformObject(dragonIdx1, glm::vec3(-1,0,0), vpe::TransformOperation::TRANSLATE);
+    //renderer.transformObject(dragonIdx1,
+    //                         glm::radians(90.0f) * vpe::UP,
+    //                         vpe::TransformOperation::ROTATE_EULER);
 
     uint32_t newMaterialIdx = renderer.createMaterial(vpe::DEFAULT_VERT,
                                                       vpe::DEFAULT_FRAG,
                                                       "../Textures/ColorTestTex.png");
 
     renderer.setObjMaterial(dragonIdx1, newMaterialIdx);
-    uint32_t dragonIdx2 = renderer.createObject("../Models/dragon.obj", modelMat2);
+
+    uint32_t dragonIdx2 = renderer.createObject("../Models/dragon.obj");
+    renderer.transformObject(dragonIdx2, glm::vec3(1,0,0), vpe::TransformOperation::TRANSLATE);
+    //renderer.transformObject(dragonIdx2,
+    //                         glm::radians(90.0f) * vpe::UP,
+    //                         vpe::TransformOperation::ROTATE_EULER);
+
     renderer.setObjMaterial(dragonIdx2, vpe::DEFAULT_MATERIAL_IDX);
     renderer.loadTextureToMaterial("../Textures/UVTestTex.png", vpe::DEFAULT_MATERIAL_IDX);
 
     renderer.addLight(light1);
 
-    auto rotateCB = [](const float _deltaTime, glm::mat4& _model)
+    auto rotateCB = [](const float _deltaTime, vpe::Transform& _transform)
     {
-      _model = glm::rotate(_model, _deltaTime * glm::radians(90.0f), vpe::UP);
+      _transform.rotate( _deltaTime * glm::radians(90.0f) * vpe::UP );
     };
 
-    //auto jumpingCB = [](const float _deltaTime, glm::mat4& _model)
-    //{
-    //  auto currentTime = glfwGetTime();
-    // _model = glm::translate(_model, 0.5f * UP * _deltaTime * static_cast<float>(sin(currentTime)));
-    //};
-
-    auto jumpRotCB = [](const float _deltaTime, glm::mat4& _model)
+    auto jumpRotCB = [](const float _deltaTime, vpe::Transform& _transform)
     {
-      auto currentTime = glfwGetTime();
+      double currentTime = glfwGetTime();
 
-      _model = glm::translate(_model, 0.5f * vpe::UP * _deltaTime * static_cast<float>(sin(currentTime)));
-      _model = glm::rotate(_model, _deltaTime * glm::radians(90.0f), vpe::UP);
+      _transform.translate( 0.5f * vpe::UP * _deltaTime * static_cast<float>(sin(currentTime)) );
+      _transform.rotate( _deltaTime * glm::radians(90.0f) * vpe::UP );
     };
 
     renderer.setObjUpdateCB(dragonIdx1, rotateCB);

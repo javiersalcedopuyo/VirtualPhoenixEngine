@@ -5,18 +5,12 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #endif
 
+#include "VPTransform.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 namespace vpe
 {
-constexpr glm::vec3 UP    = glm::vec3( 0.0f,  1.0f,  0.0f);
-constexpr glm::vec3 DOWN  = glm::vec3( 0.0f, -1.0f,  0.0f);
-constexpr glm::vec3 LEFT  = glm::vec3(-1.0f,  0.0f,  0.0f);
-constexpr glm::vec3 RIGHT = glm::vec3( 1.0f,  0.0f,  0.0f);
-constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  0.0f,  1.0f);
-constexpr glm::vec3 BACK  = glm::vec3( 0.0f,  0.0f, -1.0f);
-
 class Camera
 {
 public:
@@ -132,8 +126,8 @@ public:
     view    = glm::lookAt(position, position + forward, up);
   }
 
-  inline glm::mat4& getProjMat() { return projection; }
-  inline glm::mat4& getViewMat() { return view; }
+  inline const glm::mat4& getProjMat() const { return projection; }
+  inline const glm::mat4& getViewMat() const { return view; }
 
 private:
 
@@ -141,6 +135,7 @@ private:
   float     far;
   float     fieldOfView;
   float     aspectRatio;
+  Transform transform;
   glm::vec3 position;
   glm::vec3 forward;
   glm::vec3 up;

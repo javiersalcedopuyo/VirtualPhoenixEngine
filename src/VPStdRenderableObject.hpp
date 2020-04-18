@@ -1,6 +1,7 @@
 #ifndef VP_RENDERABLE_OBJECT_HPP
 #define VP_RENDERABLE_OBJECT_HPP
 
+#include "VPTransform.hpp"
 #include "VPMaterial.hpp"
 #include "VPMesh.hpp"
 
@@ -21,30 +22,27 @@ friend class Scene;
 private:
   StdRenderableObject() = delete;
   StdRenderableObject(uint32_t _idx,
-                      const glm::mat4&  _model,
                       std::string _meshPath,
                       std::shared_ptr<StdMaterial>& _pMaterial) :
     m_UBOoffsetIdx(_idx),
-    m_model(_model),
     m_meshPath(_meshPath),
     m_pMaterial(_pMaterial),
     m_descriptorSet(VK_NULL_HANDLE),
-    m_updateCallback( [](const float, glm::mat4&){} )
+    m_updateCallback( [](const float, Transform&){} )
   {};
 
 public:
-  // TODO: Transform
   uint32_t  m_UBOoffsetIdx;
-  glm::mat4 m_model;
+  Transform m_transform;
 
   // Misc
   std::string m_meshPath;
   std::shared_ptr<StdMaterial> m_pMaterial; // TODO: Change this for its index?
   VkDescriptorSet              m_descriptorSet;
 
-  std::function<void(const float, glm::mat4&)> m_updateCallback;
+  std::function<void(const float, Transform&)> m_updateCallback;
 
-  inline void update(const float _deltaTime) { m_updateCallback(_deltaTime, m_model); }
+  inline void update(const float _deltaTime) { m_updateCallback(_deltaTime, m_transform); }
 
   inline void setMaterial(std::shared_ptr<StdMaterial>& _newMat)
   {

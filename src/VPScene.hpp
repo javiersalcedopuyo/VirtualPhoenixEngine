@@ -23,9 +23,20 @@ struct ObjInitData
 
 struct ObjChangesData
 {
-  uint32_t objectIdx;
-  uint32_t materialIdx;
-  std::function<void(const float, glm::mat4&)> updateCallback;
+  ObjChangesData(uint32_t _objIdx) :
+    objectIdx(_objIdx),
+    materialIdx(UINT32_MAX),
+    translation(0),
+    rotationEuler(0),
+    scaleFactors(0)
+  {};
+
+  uint32_t  objectIdx;
+  uint32_t  materialIdx;
+  glm::vec3 translation;
+  glm::vec3 rotationEuler;
+  glm::vec3 scaleFactors;
+  std::function<void(const float, Transform&)> updateCallback;
 };
 
 struct MaterialChangesData
@@ -70,13 +81,35 @@ public:
     m_pRenderPipelineManager = _manager;
   }
 
-  inline void setObjUpdateCB(const uint32_t _objIdx,
-                             std::function<void(const float, glm::mat4&)> _callback)
+  inline void scheduleObjCBChange(const uint32_t _objIdx,
+                                  std::function<void(const float, Transform&)> _callback)
   {
-    if (_objIdx >= m_renderableObjects.size())
-      m_scheduledObjChangesData.push( ObjChangesData{_objIdx, UINT32_MAX, _callback} );
-    else
-      m_renderableObjects.at(_objIdx).m_updateCallback = _callback;
+    ObjChangesData changes(_objIdx);
+    changes.updateCallback = _callback;
+    m_scheduledObjChangesData.push(changes);
+  }
+
+  inline void scheduleObjTransform(const uint32_t _objIdx, glm::vec3 _value, TransformOperation _op)
+  {
+    ObjChangesData changes(_objIdx);
+    switch (_op)
+    {
+      case TransformOperation::TRANSLATE:
+        changes.translation = _value;
+        break;
+      case TransformOperation::ROTATE_EULER:
+        changes.rotationEuler = _value;
+        break;
+      // TODO: case TransformOperation::ROTATE_QUATERNION:
+      case TransformOperation::SCALE:
+        changes.scaleFactors = _value;
+        break;
+      default:
+        std::cout << "WARNING: Scene::scheduleObjTransform - Unknown transform operation." << std::endl;
+        break;
+    }
+
+    m_scheduledObjChangesData.push(changes);
   }
 
   inline uint32_t createMaterial(const char* _vertShaderPath,
@@ -90,7 +123,6 @@ public:
   inline void addMesh(const char* _path)
   {
     if (m_pMeshes.count(_path) > 0) return;
-
     m_pMeshes.emplace( _path, new Mesh(_path) );
   }
 
@@ -100,15 +132,17 @@ public:
     return m_lights.size() + m_scheduledLightCreationData.size() - 1;
   }
 
-  inline uint32_t scheduleObjCreation(const char* _meshPath, const glm::mat4& _modelMat)
+  inline uint32_t scheduleObjCreation(const char* _meshPath)
   {
-    m_scheduledObjInitData.emplace(_meshPath, _modelMat);
-    return m_renderableObjects.size() + m_scheduledObjInitData.size() - 1;
+    m_scheduledObjCreationMeshes.emplace(_meshPath);
+    return m_renderableObjects.size() + m_scheduledObjCreationMeshes.size() - 1;
   }
 
   inline void scheduleObjMaterialChange(const uint32_t _objIdx, const uint32_t _matIdx)
   {
-    m_scheduledObjChangesData.push( ObjChangesData{_objIdx, _matIdx, nullptr} );
+    ObjChangesData changes(_objIdx);
+    changes.materialIdx = _matIdx;
+    m_scheduledObjChangesData.push(changes);
   }
 
   inline void scheduleMaterialTextureChange(const uint32_t _matIdx, const char* _texPath)
@@ -116,7 +150,7 @@ public:
     m_scheduledMaterialChangesData.push( MaterialChangesData{_matIdx, _texPath} );
   }
 
-  inline void update(Camera& _camera, float _deltaTime)
+  inline void update(const Camera& _camera, float _deltaTime)
   {
     m_descriptorsChanged = false;
 
@@ -150,7 +184,7 @@ private:
   std::unordered_map<std::string, std::shared_ptr<Mesh>> m_pMeshes;
 
   std::queue<Light>               m_scheduledLightCreationData;
-  std::queue<ObjInitData>         m_scheduledObjInitData;
+  std::queue<const char*>         m_scheduledObjCreationMeshes;
   std::queue<ObjChangesData>      m_scheduledObjChangesData;
   std::queue<MaterialChangesData> m_scheduledMaterialChangesData;
 
@@ -164,11 +198,11 @@ private:
   void scheduledCreations();
   void scheduledChanges();
 
-  void createObject(const char* _meshPath, const glm::mat4& _model);
+  void createObject(const char* _meshPath);
   void addLight(Light& _light);
   void changeMaterialTexture(const uint32_t _materialIdx, const char* _texturePath);
   void changeObjectMaterial(const uint32_t _objectIdx, const uint32_t _materialIdx);
-  void updateObjects(Camera& _camera, float _deltaTime);
+  void updateObjects(const Camera& _camera, float _deltaTime);
   //void updateLights(float _deltaTime);
   void recreateSceneDescriptors();
 };

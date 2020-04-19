@@ -23,7 +23,7 @@ void main()
   const vec4 cameraVertexPos = u_mvpn.modelView * vec4(_inPosition, 1.0);
 
   _fragPosition = cameraVertexPos.xyz;
-  _fragNormal   = (u_mvpn.view * vec4(_inNormal, 0)).xyz;
+  _fragNormal   = (u_mvpn.normal * vec4(_inNormal, 0)).xyz;
   _fragTexCoord = _inTexCoord;
 
   gl_Position = u_mvpn.proj * cameraVertexPos;

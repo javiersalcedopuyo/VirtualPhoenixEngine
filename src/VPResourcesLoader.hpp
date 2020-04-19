@@ -21,7 +21,7 @@ namespace resourcesLoader
     VkFormat format;
     stbi_uc* pPixels = nullptr;
 
-    inline int size() { return width * heigth * channels; }
+    inline int size() { return width * heigth * 4; }
   };
 
   static inline std::vector<char> parseShaderFile(const char* _fileName)
@@ -46,7 +46,7 @@ namespace resourcesLoader
   {
     ImageData result{};
 
-    result.format = VK_FORMAT_R8G8B8A8_UNORM; // TODO: get the format from the image itself
+    result.format = VK_FORMAT_R8G8B8A8_UNORM;
 
     result.pPixels = stbi_load(_path, &result.width, &result.heigth, &result.channels, STBI_rgb_alpha);
     result.mipLevels = std::floor(std::log2(std::max(result.width, result.heigth))) + 1;

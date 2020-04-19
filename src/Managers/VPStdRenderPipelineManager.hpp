@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include <any>
 #include <vector>
 #include <array>
 // Error management
@@ -16,12 +17,15 @@ namespace vpe
 {
 constexpr uint8_t BINDING_COUNT = 3;
 
-enum DescriptorFlags :uint8_t
+enum DescriptorFlags : uint8_t
 {
-  NONE     = 0,
-  UBOS     = 1 << 0,
-  TEXTURES = 1 << 1,
-  ALL      = 0xFF
+  NONE          = 0,
+  MATRICES      = 1 << 0,
+  MATERIAL_DATA = 1 << 1,
+  LIGHTS        = 1 << 2,
+  TEXTURE      = 1 << 3,
+  NORMAL_MAP    = 1 << 4,
+  ALL           = 0xFF
 };
 
 class StdRenderPipelineManager
@@ -168,6 +172,11 @@ private:
   VkDescriptorPool                                m_descriptorPool;
 
   void createLayout(const size_t _lightCount);
+  VkWriteDescriptorSet createWriteDescriptorSet(const DescriptorFlags _type,
+                                                const uint32_t _binding,
+                                                const uint32_t _descriptorCount,
+                                                const VkDescriptorSet& _descriptorSet,
+                                                std::any _pInfo);
 };
 }
 #endif

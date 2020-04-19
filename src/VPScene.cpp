@@ -153,7 +153,7 @@ void Scene::changeMaterialTexture(const uint32_t _materialIdx, const char* _text
 
     m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
                                                      0,
-                                                     DescriptorFlags::TEXTURES,
+                                                     DescriptorFlags::TEXTURE,
                                                      &object);
     m_descriptorsChanged = true;
   }
@@ -168,7 +168,7 @@ void Scene::changeObjectMaterial(const uint32_t _objectIdx, const uint32_t _mate
   std::vector<VkBuffer> dummyUBOs{};
   m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
                                                    0,
-                                                   DescriptorFlags::TEXTURES,
+                                                   DescriptorFlags::TEXTURE,
                                                    &m_renderableObjects.at(_objectIdx));
 
   m_descriptorsChanged = true;

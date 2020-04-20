@@ -41,9 +41,9 @@ constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 constexpr uint32_t DEFAULT_MATERIAL_IDX = 0;
 
-constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
-constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
-constexpr VkClearColorValue CLEAR_COLOR_SKY   = {0.53f, 0.81f, 0.92f, 1.0f};
+constexpr VkClearColorValue CLEAR_COLOR_BLACK {{0.0f,  0.0f,  0.0f,  1.0f}};
+constexpr VkClearColorValue CLEAR_COLOR_GREY  {{0.25f, 0.25f, 0.25f, 1.0f}};
+constexpr VkClearColorValue CLEAR_COLOR_SKY   {{0.53f, 0.81f, 0.92f, 1.0f}};
 
 inline VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
 {

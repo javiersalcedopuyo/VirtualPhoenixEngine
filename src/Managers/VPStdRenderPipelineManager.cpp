@@ -209,9 +209,11 @@ StdRenderPipelineManager::createWriteDescriptorSet(const DescriptorFlags _type,
   return result;
 }
 
-void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
+void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent,
+                                                   VkViewport& _viewport,
+                                                   VkRect2D& _scissor)
 {
-  VkViewport* viewport = new VkViewport
+  _viewport =
   {
     0.0f,
     0.0f,
@@ -222,7 +224,7 @@ void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
   };
 
   // Draw the full viewport
-  VkRect2D* scissor = new VkRect2D
+  _scissor =
   {
     {0,0},
     _extent
@@ -232,9 +234,9 @@ void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
   m_viewportState               = {};
   m_viewportState.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   m_viewportState.viewportCount = 1;
-  m_viewportState.pViewports    = viewport;
+  m_viewportState.pViewports    = &_viewport;
   m_viewportState.scissorCount  = 1;
-  m_viewportState.pScissors     = scissor;
+  m_viewportState.pScissors     = &_scissor;
 }
 
 void StdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const StdMaterial& _material)
@@ -282,7 +284,9 @@ void StdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const S
   inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-  this->updateViewportState(_extent);
+  VkViewport viewport;
+  VkRect2D   scissor;
+  this->updateViewportState(_extent, viewport, scissor);
 
   // Rasterizer
   // depthClamp: Clamps instead of discarding the fragments out of the frustrum.

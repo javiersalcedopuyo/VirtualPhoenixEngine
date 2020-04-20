@@ -1,5 +1,5 @@
 #ifndef VP_COMMAND_BUFFER_MANAGER_HPP
-#define VP_COMMAND_BUFFER_MANAGER_HHP
+#define VP_COMMAND_BUFFER_MANAGER_HPP
 
 #include <vulkan/vulkan.h>
 #include <optional>

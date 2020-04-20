@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 
 project(VirtualPhenixEngine)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror -std=c++17")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror -std=c++17")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -ggdb -fexceptions -fsanitize=address")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory (src/)

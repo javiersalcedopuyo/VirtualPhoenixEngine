@@ -73,7 +73,7 @@ public:
                               const DescriptorFlags _flags,
                               StdRenderableObject* _obj);
 
-  void updateViewportState(const VkExtent2D& _extent);
+  void updateViewportState(const VkExtent2D& _extent, VkViewport& _viewport, VkRect2D& _scissor);
 
   static VkShaderModule createShaderModule(const std::vector<char>& _code);
 

@@ -52,7 +52,10 @@ namespace resourcesLoader
     result.mipLevels = std::floor(std::log2(std::max(result.width, result.heigth))) + 1;
 
     if (result.pPixels == nullptr)
-      throw std::runtime_error("ERROR: vpe::resourcesLoader::loadImage - Failed to load image!");
+    {
+      std::string errorText("ERROR: vpe::resourcesLoader::loadImage - Failed to load image!");
+      throw std::runtime_error(errorText + " (" + _path + ")");
+    }
 
     return result;
   }

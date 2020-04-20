@@ -14,7 +14,7 @@ namespace vpe
 {
 const char* const DEFAULT_VERT = "../src/Shaders/vert.spv";
 const char* const DEFAULT_FRAG = "../src/Shaders/frag.spv";
-const char* const DEFAULT_TEX  = "../Textures/Default.png";
+const char* const DEFAULT_TEX  = "../Textures/default.png";
 
 struct StdMaterial
 {

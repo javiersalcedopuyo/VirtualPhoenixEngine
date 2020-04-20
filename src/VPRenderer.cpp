@@ -167,6 +167,7 @@ void Renderer::renderLoop()
 {
   static auto  startTime   = std::chrono::high_resolution_clock::now();
          auto  currentTime = std::chrono::high_resolution_clock::now();
+         float cumulativeTime = 0.0f;
 
   float  moveSpeed   = 10.0f;
   float  rotateSpeed = 10.0f;
@@ -178,12 +179,25 @@ void Renderer::renderLoop()
   userInputCtx.cameraMoveSpeed   = moveSpeed;
   userInputCtx.cameraRotateSpeed = rotateSpeed;
 
+  std::string title("Virtual Phoenix Engine (Vulkan)");
+
+  size_t frameCounter = 0;
   while (!glfwWindowShouldClose(m_pWindow))
   {
+    ++frameCounter;
     currentTime = std::chrono::high_resolution_clock::now();
     m_deltaTime = std::chrono::duration<float, std::chrono::seconds::period>
                   (currentTime - startTime).count();
+    cumulativeTime += m_deltaTime;
     startTime   = currentTime;
+
+    if (cumulativeTime > 1.0f)
+    {
+      auto newTitle = title + " [" + std::to_string(frameCounter) + " fps]";
+      glfwSetWindowTitle(m_pWindow, newTitle.c_str());
+      cumulativeTime = 0.0f;
+      frameCounter = 0;
+    }
 
     userInputCtx.deltaTime = m_deltaTime;
     *m_pUserInputController->m_pScrollY = 0;

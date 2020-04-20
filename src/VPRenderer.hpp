@@ -132,7 +132,7 @@ public:
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }
 
   inline void setCamera(glm::vec3 _position, glm::vec3 _forward, glm::vec3 _up,
-                        float _fov = 45.0f,  float _far = 10.0f, float _near = 0.1f)
+                        float _near = 0.1f, float _far = 10.0f,  float _fov = 45.0f)
   {
     if (m_pCamera == nullptr)
     {

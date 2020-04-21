@@ -701,7 +701,7 @@ void Renderer::cleanUp()
   m_scene.cleanUp();
   m_pRenderPipelineManager.reset();
 
-  CommandBufferManager::getInstance().destroyCommandPool();
+  CommandBufferManager::getInstance().cleanUp();
 
   vkDestroyDevice(m_logicalDevice, nullptr);
   vkDestroySurfaceKHR(m_vkInstance, m_surface, nullptr);

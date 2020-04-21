@@ -1,7 +1,4 @@
  ./compileShaders.sh
  cd ./build
- make clean
- cmake ..
- ninja
+ cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_BUILD_TYPE=Debug .. && ninja
  ./VPEngine
- cd ..

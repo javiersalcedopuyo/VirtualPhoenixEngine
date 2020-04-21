@@ -9,19 +9,25 @@
 
 #include "VPVertex.hpp"
 
-namespace vpe {
+namespace vpe
+{
+const char* const DEFAULT_VERT = "../src/Shaders/vert.spv";
+const char* const DEFAULT_FRAG = "../src/Shaders/frag.spv";
+const char* const DEFAULT_TEX  = "VP_DEFAULT_TEX";
+const char* const EMPTY_TEX    = "VP_EMPTY_TEX";
+
 namespace resourcesLoader
 {
   struct ImageData
   {
-    int      width;
-    int      heigth;
-    int      channels;
-    int      mipLevels;
-    VkFormat format;
-    stbi_uc* pPixels = nullptr;
+    int      width     = 1;
+    int      heigth    = 1;
+    int      channels  = 4;
+    int      mipLevels = 1;
+    VkFormat format    = VK_FORMAT_R8G8B8A8_UNORM;
+    stbi_uc* pPixels   = nullptr;
 
-    inline int size() { return width * heigth * 4; }
+    inline int size() { return width * heigth * channels; }
   };
 
   static inline std::vector<char> parseShaderFile(const char* _fileName)
@@ -42,20 +48,38 @@ namespace resourcesLoader
     return buffer;
   }
 
+  static inline void loadDefaultImage(ImageData* _data)
+  {
+    _data->pPixels = static_cast<stbi_uc*>( malloc(4) ); // stbi uses free to clean up
+    memset(_data->pPixels, 255, 4);
+  }
+
+  static inline void loadEmptyImage(ImageData* _data)
+  {
+    _data->pPixels = static_cast<stbi_uc*>( malloc(4) ); // stbi uses free to clean up
+    memset(_data->pPixels, 0, 4);
+  }
+
   static inline ImageData loadImage(const char* _path)
   {
-    ImageData result{};
+    ImageData result;
 
-    result.format = VK_FORMAT_R8G8B8A8_UNORM;
-
-    result.pPixels = stbi_load(_path, &result.width, &result.heigth, &result.channels, STBI_rgb_alpha);
-    result.mipLevels = std::floor(std::log2(std::max(result.width, result.heigth))) + 1;
-
-    if (result.pPixels == nullptr)
+    if (strcmp(_path, DEFAULT_TEX) == 0)
     {
-      std::string errorText("ERROR: vpe::resourcesLoader::loadImage - Failed to load image!");
-      throw std::runtime_error(errorText + " (" + _path + ")");
+      loadDefaultImage(&result);
     }
+    else if (strcmp(_path, EMPTY_TEX) == 0)
+    {
+      loadEmptyImage(&result);
+    }
+    else
+    {
+      int dummy = 0;
+      result.pPixels   = stbi_load(_path, &result.width, &result.heigth, &dummy, STBI_rgb_alpha);
+      result.mipLevels = std::floor(std::log2(std::max(result.width, result.heigth))) + 1;
+    }
+
+    if (result.pPixels == nullptr) { loadEmptyImage(&result); }
 
     return result;
   }

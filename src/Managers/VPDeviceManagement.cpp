@@ -241,7 +241,7 @@ namespace deviceManagement
     extensionCount = 0;
     for (const char* extensionName : DEVICE_EXTENSIONS)
     {
-      for (const VkExtensionProperties extension : availableExtensions)
+      for (const VkExtensionProperties& extension : availableExtensions)
         if (!strcmp(extensionName, extension.extensionName))
           ++extensionCount;
     }
@@ -262,7 +262,7 @@ namespace deviceManagement
 
     for (const char* layerName : VALIDATION_LAYERS)
     {
-      for (const VkLayerProperties properties : availableLayers)
+      for (const VkLayerProperties& properties : availableLayers)
       {
         if (!strcmp(layerName, properties.layerName))
         {

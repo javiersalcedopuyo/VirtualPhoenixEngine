@@ -12,3 +12,6 @@ Currently supports:
   * Scroll: Move the camera forward/backward
 
 ![Demo01](./out/Demo01.gif)
+
+# Special Thanks
+@cambalamas for all the help, specially regarding CMake and Assimp.

@@ -123,7 +123,16 @@ public:
   inline void addMesh(const char* _path)
   {
     if (m_pMeshes.count(_path) > 0) return;
-    m_pMeshes.emplace( _path, new Mesh(_path) );
+
+    Mesh* mesh = new Mesh(_path);
+
+    if (mesh->m_isValid)
+      m_pMeshes.emplace( _path, mesh );
+    else
+    {
+      std::cout << "ERROR: Scene::addMesh - Mesh not added." << std::endl;
+      delete mesh;
+    }
   }
 
   inline uint32_t scheduleLightCreation(Light& _light)

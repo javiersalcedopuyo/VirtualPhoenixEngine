@@ -10,9 +10,8 @@ layout(set = 0, binding = 0) uniform modelViewProjectionNormalUBO
 } u_mvpn;
 
 layout(location = 0) in  vec3 _inPosition;
-layout(location = 1) in  vec3 _inColor;
-layout(location = 2) in  vec3 _inNormal;
-layout(location = 3) in  vec2 _inTexCoord;
+layout(location = 1) in  vec3 _inNormal;
+layout(location = 2) in  vec2 _inTexCoord;
 
 layout(location = 0) out vec3  _fragPosition;
 layout(location = 1) out vec3  _fragNormal;

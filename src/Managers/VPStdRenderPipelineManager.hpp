@@ -77,7 +77,7 @@ public:
 
   static VkShaderModule createShaderModule(const std::vector<char>& _code);
 
-  static inline std::array<VkVertexInputAttributeDescription,4> getAttributeDescriptions()
+  static inline std::array<VkVertexInputAttributeDescription,3> getAttributeDescriptions()
   {
     return Vertex::getAttributeDescriptions();
   }

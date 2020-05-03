@@ -11,11 +11,18 @@ namespace vpe
 struct Mesh
 {
   Mesh() = delete;
-  Mesh(const char* _path)
+  Mesh(const char* _path) : m_isValid(true)
   {
     auto& bufferManager = MemoryBufferManager::getInstance();
 
     std::tie(m_vertices, m_indices) = resourcesLoader::loadModel(_path);
+
+    if (m_vertices.empty() || m_indices.empty())
+    {
+      m_isValid = false;
+      std::cout << "ERROR: Mesh::Mesh - Failed loading of model." << std::endl;
+      return;
+    }
 
     bufferManager.fillBuffer(&m_vertexBuffer,
                              m_vertices.data(),
@@ -34,6 +41,8 @@ struct Mesh
 
   ~Mesh()
   {
+    if (!m_isValid) return;
+
     const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
     vkDestroyBuffer(logicalDevice, m_indexBuffer, nullptr);
@@ -41,6 +50,8 @@ struct Mesh
     vkFreeMemory(logicalDevice, m_vertexBufferMemory, nullptr);
     vkFreeMemory(logicalDevice, m_indexBufferMemory, nullptr);
   }
+
+  bool m_isValid;
 
   // Raw data
   std::vector<uint32_t> m_indices;

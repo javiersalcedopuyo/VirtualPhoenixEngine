@@ -76,7 +76,7 @@ void Renderer::initVulkan()
 
   // Create the default Material and Pipeline
   this->createGraphicsPipelineManager();
-  this->createMaterial(DEFAULT_VERT, DEFAULT_FRAG, DEFAULT_TEX);
+  this->createMaterial(DEFAULT_VERT, DEFAULT_FRAG);
 
   if (MSAA_ENABLED) this->createColorResources();
   this->createDepthResources();

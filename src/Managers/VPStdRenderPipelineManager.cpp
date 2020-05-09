@@ -46,19 +46,19 @@ void StdRenderPipelineManager::createLayout(const size_t _lightCount)
   textureSamplerLayoutBinding.pImmutableSamplers = nullptr;
 
   // Normal map
-  //VkDescriptorSetLayoutBinding normalMapSamplerLayoutBinding{};
-  //normalMapSamplerLayoutBinding.binding            = 3;
-  //normalMapSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  //normalMapSamplerLayoutBinding.descriptorCount    = 1;
-  //normalMapSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
-  //normalMapSamplerLayoutBinding.pImmutableSamplers = nullptr;
+  VkDescriptorSetLayoutBinding normalMapSamplerLayoutBinding{};
+  normalMapSamplerLayoutBinding.binding            = 3;
+  normalMapSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  normalMapSamplerLayoutBinding.descriptorCount    = 1;
+  normalMapSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+  normalMapSamplerLayoutBinding.pImmutableSamplers = nullptr;
 
   std::array<VkDescriptorSetLayoutBinding, BINDING_COUNT> bindings =
   {
     mvpLayoutBinding,
     lightsLayoutBinding,
     textureSamplerLayoutBinding,
-    //normalMapSamplerLayoutBinding
+    normalMapSamplerLayoutBinding
   };
 
   VkDescriptorSetLayoutCreateInfo dsLayoutInfo{};
@@ -116,7 +116,7 @@ void StdRenderPipelineManager::updateObjDescriptorSet(std::vector<VkBuffer>& _UB
   std::vector<VkWriteDescriptorSet>   descriptorWrites{};
   VkDescriptorBufferInfo              mvpnInfo{};
   VkDescriptorImageInfo               textureInfo{};
-  //VkDescriptorImageInfo               normalMapInfo{};
+  VkDescriptorImageInfo               normalMapInfo{};
   std::vector<VkDescriptorBufferInfo> lightsInfo{};
 
   if (_flags & DescriptorFlags::MATRICES)
@@ -151,7 +151,6 @@ void StdRenderPipelineManager::updateObjDescriptorSet(std::vector<VkBuffer>& _UB
 
   if (_flags & DescriptorFlags::TEXTURE)
   {
-    // TODO: Multiple textures (normal, specular, etc)
     textureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     textureInfo.imageView   = _obj->m_pMaterial->pTexture->getImageView();
     textureInfo.sampler     = _obj->m_pMaterial->pTexture->getSampler();
@@ -160,6 +159,19 @@ void StdRenderPipelineManager::updateObjDescriptorSet(std::vector<VkBuffer>& _UB
                                              2, 1,
                                              _obj->m_descriptorSet,
                                              &textureInfo);
+    descriptorWrites.push_back(ds);
+  }
+
+  if (_flags & DescriptorFlags::NORMAL_MAP)
+  {
+    normalMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    normalMapInfo.imageView   = _obj->m_pMaterial->pNormalMap->getImageView();
+    normalMapInfo.sampler     = _obj->m_pMaterial->pNormalMap->getSampler();
+
+    auto ds = this->createWriteDescriptorSet(DescriptorFlags::NORMAL_MAP,
+                                             3, 1,
+                                             _obj->m_descriptorSet,
+                                             &normalMapInfo);
     descriptorWrites.push_back(ds);
   }
 

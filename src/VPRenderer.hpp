@@ -102,15 +102,19 @@ public:
   // TODO: deleteSceneObject
 
   inline uint32_t createMaterial(const char* _vertShaderPath,
-                                 const char* _fragShaderPath,
-                                 const char* _texturePath)
+                                 const char* _fragShaderPath)
   {
-    return m_scene.createMaterial(_vertShaderPath, _fragShaderPath, _texturePath);
+    return m_scene.createMaterial(_vertShaderPath, _fragShaderPath);
   }
 
-  inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
+  inline void setMaterialTexture(const uint32_t _matIdx, const char* _path)
   {
-    m_scene.scheduleMaterialTextureChange(_matIdx, _path);
+    m_scene.scheduleMaterialImageChange(_matIdx, _path, DescriptorFlags::TEXTURE);
+  }
+
+  inline void setMaterialNormalMap(const uint32_t _matIdx, const char* _path)
+  {
+    m_scene.scheduleMaterialImageChange(_matIdx, _path, DescriptorFlags::NORMAL_MAP);
   }
 
   inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)

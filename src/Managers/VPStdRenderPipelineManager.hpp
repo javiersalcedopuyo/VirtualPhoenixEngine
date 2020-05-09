@@ -15,7 +15,7 @@
 
 namespace vpe
 {
-constexpr uint8_t BINDING_COUNT = 3;
+constexpr uint8_t BINDING_COUNT = 4;
 
 enum DescriptorFlags : uint8_t
 {
@@ -23,7 +23,7 @@ enum DescriptorFlags : uint8_t
   MATRICES      = 1 << 0,
   MATERIAL_DATA = 1 << 1,
   LIGHTS        = 1 << 2,
-  TEXTURE      = 1 << 3,
+  TEXTURE       = 1 << 3,
   NORMAL_MAP    = 1 << 4,
   ALL           = 0xFF
 };
@@ -38,14 +38,7 @@ public:
     m_pipelineLayout(VK_NULL_HANDLE),
     m_descriptorPool(VK_NULL_HANDLE)
   {
-    m_descriptorPoolSizes = {};
-    m_descriptorPoolSizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    m_descriptorPoolSizes[0].descriptorCount = 0;
-    m_descriptorPoolSizes[1].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    m_descriptorPoolSizes[1].descriptorCount = _lightsCount;
-    m_descriptorPoolSizes[2].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    m_descriptorPoolSizes[2].descriptorCount = 0;
-
+    this->createOrUpdateDescriptorPool(0, _lightsCount, IMAGES_PER_MATERIAL);
     createLayout(_lightsCount);
   };
 
@@ -77,7 +70,7 @@ public:
 
   static VkShaderModule createShaderModule(const std::vector<char>& _code);
 
-  static inline std::array<VkVertexInputAttributeDescription,3> getAttributeDescriptions()
+  static inline std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
   {
     return Vertex::getAttributeDescriptions();
   }
@@ -167,9 +160,9 @@ private:
   VkPipelineLayout                       m_pipelineLayout;
   std::unordered_map<size_t, VkPipeline> m_pipelinePool;
 
-  VkDescriptorSetLayout                           m_descriptorSetLayout;
-  std::array<VkDescriptorPoolSize, BINDING_COUNT> m_descriptorPoolSizes;
-  VkDescriptorPool                                m_descriptorPool;
+  VkDescriptorSetLayout                  m_descriptorSetLayout;
+  std::array<VkDescriptorPoolSize, 3>    m_descriptorPoolSizes;
+  VkDescriptorPool                       m_descriptorPool;
 
   void createLayout(const size_t _lightCount);
   VkWriteDescriptorSet createWriteDescriptorSet(const DescriptorFlags _type,

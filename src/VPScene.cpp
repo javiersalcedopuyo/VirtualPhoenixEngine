@@ -59,7 +59,7 @@ void Scene::scheduledChanges()
   {
     auto& changes = m_scheduledMaterialChangesData.front();
     if (changes.idx < m_pMaterials.size())
-      this->changeMaterialTexture(changes.idx, changes.texturePath);
+      this->changeMaterialImage(changes.idx, changes.texturePath, changes.type);
 
     m_scheduledMaterialChangesData.pop();
   }
@@ -69,7 +69,7 @@ void Scene::recreateSceneDescriptors()
 {
   m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
                                                          m_lights.size() * m_renderableObjects.size(),
-                                                         1);
+                                                         IMAGES_PER_MATERIAL);
 
   std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
   for (auto& object : m_renderableObjects)
@@ -137,23 +137,34 @@ void Scene::addLight(Light& _light)
   m_descriptorsChanged = true;
 }
 
-void Scene::changeMaterialTexture(const uint32_t _materialIdx, const char* _texturePath)
+void Scene::changeMaterialImage(const uint32_t _materialIdx,
+                                const char* _texturePath,
+                                const DescriptorFlags _type)
 {
-  if (_materialIdx >= m_pMaterials.size()) return;
+  if (_materialIdx >= m_pMaterials.size() ||
+      (_type != DescriptorFlags::TEXTURE && _type != DescriptorFlags::NORMAL_MAP))
+  {
+    return;
+  }
 
-  m_pMaterials.at(_materialIdx)->changeTexture(_texturePath);
+  if (_type == DescriptorFlags::TEXTURE)
+    m_pMaterials.at(_materialIdx)->changeTexture(_texturePath);
+  else
+    m_pMaterials.at(_materialIdx)->changeNormalMap(_texturePath);
 
   auto device = *MemoryBufferManager::getInstance().m_pLogicalDevice;
   vkDeviceWaitIdle(device);
 
-  std::vector<VkBuffer> dummyUBOs{};
+  std::vector<VkBuffer> NOT_UPDATING_UBOS{};
+  const size_t NOT_UPDATING_LIGHTS = 0;
+
   for (auto& object : m_renderableObjects)
   {
     if (object.m_pMaterial != m_pMaterials.at(_materialIdx)) continue;
 
-    m_pRenderPipelineManager->updateObjDescriptorSet(dummyUBOs,
-                                                     0,
-                                                     DescriptorFlags::TEXTURE,
+    m_pRenderPipelineManager->updateObjDescriptorSet(NOT_UPDATING_UBOS,
+                                                     NOT_UPDATING_LIGHTS,
+                                                     _type,
                                                      &object);
     m_descriptorsChanged = true;
   }

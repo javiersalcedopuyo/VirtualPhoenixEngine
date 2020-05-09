@@ -94,6 +94,14 @@ namespace vpe::resourcesLoader
         result.at(i).normal = glm::vec3(N.x, N.y, N.z);
       }
 
+      if (_pMesh->HasTangentsAndBitangents())
+      {
+        const auto& T = _pMesh->mTangents[i];
+        const auto& B = _pMesh->mBitangents[i];
+        result.at(i).tangent   = glm::vec3(T.x, T.y, T.z);
+        result.at(i).bitangent = glm::vec3(B.x, B.y, B.z);
+      }
+
       for (auto j=0u; j<AI_MAX_NUMBER_OF_TEXTURECOORDS; ++j)
       {
         if (!_pMesh->HasTextureCoords(j)) continue;
@@ -176,6 +184,8 @@ namespace vpe::resourcesLoader
                 << "No support yet for multiple meshes per file. Loading just the 1st" << std::endl;
       // TODO:
     }
+    if (assimpScene->mMeshes[0]->HasTangentsAndBitangents())
+      std::cout << "There are tangents!" << std::endl;
 
     indices  = extractIndicesFromMesh(assimpScene->mMeshes[0]);
     vertices = extractVerticesFromMesh(assimpScene->mMeshes[0]);

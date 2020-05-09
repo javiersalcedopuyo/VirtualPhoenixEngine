@@ -41,8 +41,9 @@ struct ObjChangesData
 
 struct MaterialChangesData
 {
-  uint32_t    idx;
-  const char* texturePath;
+  uint32_t        idx;
+  DescriptorFlags type;
+  const char*     texturePath;
 };
 
 class Scene
@@ -113,10 +114,9 @@ public:
   }
 
   inline uint32_t createMaterial(const char* _vertShaderPath,
-                                 const char* _fragShaderPath,
-                                 const char* _texturePath)
+                                 const char* _fragShaderPath)
   {
-    m_pMaterials.emplace_back(new StdMaterial(_vertShaderPath, _fragShaderPath, _texturePath));
+    m_pMaterials.emplace_back(new StdMaterial(_vertShaderPath, _fragShaderPath));
     return m_pMaterials.size() - 1;
   }
 
@@ -154,9 +154,11 @@ public:
     m_scheduledObjChangesData.push(changes);
   }
 
-  inline void scheduleMaterialTextureChange(const uint32_t _matIdx, const char* _texPath)
+  inline void scheduleMaterialImageChange(const uint32_t _matIdx,
+                                          const char* _texPath,
+                                          const DescriptorFlags _type)
   {
-    m_scheduledMaterialChangesData.push( MaterialChangesData{_matIdx, _texPath} );
+    m_scheduledMaterialChangesData.push( MaterialChangesData{_matIdx, _type, _texPath} );
   }
 
   inline void update(const Camera& _camera, float _deltaTime)
@@ -209,7 +211,10 @@ private:
 
   void createObject(const char* _meshPath);
   void addLight(Light& _light);
-  void changeMaterialTexture(const uint32_t _materialIdx, const char* _texturePath);
+  void changeMaterialImage(const uint32_t _materialIdx,
+                           const char* _texturePath,
+                           const DescriptorFlags _type);
+
   void changeObjectMaterial(const uint32_t _objectIdx, const uint32_t _materialIdx);
   void updateObjects(const Camera& _camera, float _deltaTime);
   //void updateLights(float _deltaTime);

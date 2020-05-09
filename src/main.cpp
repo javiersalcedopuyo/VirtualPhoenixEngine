@@ -41,37 +41,25 @@ int main()
     }
 
     vpe::Light light1;
-    light1.ubo.color     = glm::vec3(1, 0.5, 0.5);
-    light1.ubo.position  = glm::vec3(-1, 2, 0);
-    light1.ubo.intensity = 1.5;
+    light1.ubo.color     = glm::vec3(1);
+    light1.ubo.position  = glm::vec3(0, 2, -1);
+    light1.ubo.intensity = 2.0f;
     renderer.addLight(light1);
 
-    light1.ubo.color     = glm::vec3(0.5, 0.5, 1);
-    light1.ubo.position  = glm::vec3(1, 2, -1);
-    light1.ubo.intensity = 1.5;
+    renderer.setMaterialTexture(vpe::DEFAULT_MATERIAL_IDX, "../Textures/ColorTestTex.png");
 
-    uint32_t dragonIdx1 = renderer.createObject("../Models/teapot.obj");
-    renderer.transformObject(dragonIdx1, glm::vec3(-1,0,0), vpe::TransformOperation::TRANSLATE);
-    //renderer.transformObject(dragonIdx1,
-    //                         glm::radians(90.0f) * vpe::UP,
-    //                         vpe::TransformOperation::ROTATE_EULER);
+    const uint32_t cube1Idx = renderer.createObject("../Models/sphere.obj");
+    renderer.transformObject(cube1Idx, glm::vec3(-1,0,0), vpe::TransformOperation::TRANSLATE);
+    //renderer.transformObject(cube1Idx, 0.5f *glm::vec3(1), vpe::TransformOperation::SCALE);
 
-    uint32_t newMaterialIdx = renderer.createMaterial(vpe::DEFAULT_VERT,
-                                                      vpe::DEFAULT_FRAG,
-                                                      "../Textures/ColorTestTex.png");
+    const uint32_t normalMapMatIdx = renderer.createMaterial(vpe::DEFAULT_VERT, vpe::DEFAULT_FRAG);
+    renderer.setMaterialTexture(normalMapMatIdx, "../Textures/ColorTestTex.png");
+    renderer.setMaterialNormalMap(normalMapMatIdx, "../Textures/BricksNormalMap.jpg");
+    renderer.setObjMaterial(cube1Idx, normalMapMatIdx);
 
-    renderer.setObjMaterial(dragonIdx1, newMaterialIdx);
-
-    uint32_t dragonIdx2 = renderer.createObject("../Models/dragon.obj");
-    renderer.transformObject(dragonIdx2, glm::vec3(1,0,0), vpe::TransformOperation::TRANSLATE);
-    //renderer.transformObject(dragonIdx2,
-    //                         glm::radians(90.0f) * vpe::UP,
-    //                         vpe::TransformOperation::ROTATE_EULER);
-
-    renderer.setObjMaterial(dragonIdx2, vpe::DEFAULT_MATERIAL_IDX);
-    renderer.loadTextureToMaterial("../Textures/UVTestTex.png", vpe::DEFAULT_MATERIAL_IDX);
-
-    renderer.addLight(light1);
+    const uint32_t cube2Idx = renderer.createObject("../Models/sphere.obj");
+    renderer.transformObject(cube2Idx, glm::vec3(1,0,0), vpe::TransformOperation::TRANSLATE);
+    //renderer.transformObject(cube2Idx, 0.5f *glm::vec3(1), vpe::TransformOperation::SCALE);
 
     auto rotateCB = [](const float _deltaTime, vpe::Transform& _transform)
     {
@@ -80,14 +68,14 @@ int main()
 
     auto jumpRotCB = [](const float _deltaTime, vpe::Transform& _transform)
     {
-      double currentTime = glfwGetTime();
+      //double currentTime = glfwGetTime();
 
-      _transform.translate( 0.5f * vpe::UP * _deltaTime * static_cast<float>(sin(currentTime)) );
+      //_transform.translate( 0.5f * vpe::UP * _deltaTime * static_cast<float>(sin(currentTime)) );
       _transform.rotate( _deltaTime * glm::radians(90.0f) * vpe::UP );
     };
 
-    renderer.setObjUpdateCB(dragonIdx1, rotateCB);
-    renderer.setObjUpdateCB(dragonIdx2, jumpRotCB);
+    renderer.setObjUpdateCB(cube1Idx, rotateCB);
+    renderer.setObjUpdateCB(cube2Idx, jumpRotCB);
 
     renderer.renderLoop();
     renderer.cleanUp();

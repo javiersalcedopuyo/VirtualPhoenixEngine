@@ -180,10 +180,16 @@ public:
     for (auto& pathAndMesh : m_pMeshes)           pathAndMesh.second.reset();
     for (auto& mat         : m_pMaterials)        mat.reset();
 
-    vkDestroyBuffer(logicalDevice, m_mvpnUBO, nullptr);
-    vkDestroyBuffer(logicalDevice, m_lightsUBO, nullptr);
-    vkFreeMemory(logicalDevice, m_mvpnUBOMemory, nullptr);
-    vkFreeMemory(logicalDevice, m_lightsUBOMemory, nullptr);
+    if (!m_lights.empty())
+    {
+      vkDestroyBuffer(logicalDevice, m_lightsUBO, nullptr);
+      vkFreeMemory(logicalDevice, m_lightsUBOMemory, nullptr);
+    }
+    if (!m_renderableObjects.empty())
+    {
+      vkDestroyBuffer(logicalDevice, m_mvpnUBO, nullptr);
+      vkFreeMemory(logicalDevice, m_mvpnUBOMemory, nullptr);
+    }
 
     m_pRenderPipelineManager.reset();
   }

@@ -90,7 +90,7 @@ void StdRenderPipelineManager::createLayout(const size_t _lightCount)
 
 void StdRenderPipelineManager::createDescriptorSet(VkDescriptorSet* _pDescriptorSet)
 {
-  if (_pDescriptorSet == nullptr) return;
+  if (_pDescriptorSet == nullptr || m_descriptorPool == VK_NULL_HANDLE) return;
 
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -101,7 +101,7 @@ void StdRenderPipelineManager::createDescriptorSet(VkDescriptorSet* _pDescriptor
   allocInfo.pSetLayouts        = &m_descriptorSetLayout;
 
   if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, _pDescriptorSet) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: VPStdRenderPipeline::createDescriptorSets - Failed!");
+    throw std::runtime_error("ERROR: VPStdRenderPipeline::createDescriptorSet - Failed!");
 }
 
 void StdRenderPipelineManager::updateObjDescriptorSet(std::vector<VkBuffer>& _UBOs,
@@ -132,7 +132,7 @@ void StdRenderPipelineManager::updateObjDescriptorSet(std::vector<VkBuffer>& _UB
     descriptorWrites.push_back(ds);
   }
 
-  if (_flags & DescriptorFlags::LIGHTS)
+  if (_flags & DescriptorFlags::LIGHTS && _lightCount > 0)
   {
     lightsInfo.resize(_lightCount);
     for (size_t i=0; i<lightsInfo.size(); ++i)

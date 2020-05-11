@@ -38,7 +38,7 @@ public:
     m_pipelineLayout(VK_NULL_HANDLE),
     m_descriptorPool(VK_NULL_HANDLE)
   {
-    this->createOrUpdateDescriptorPool(0, _lightsCount, IMAGES_PER_MATERIAL);
+    this->createOrUpdateDescriptorPool(0, _lightsCount);
     createLayout(_lightsCount);
   };
 
@@ -108,19 +108,9 @@ public:
 
   inline VkPipelineLayout& getPipelineLayout() { return m_pipelineLayout; }
 
-  inline void createOrUpdateDescriptorPool(const size_t _objCount,
-                                           const size_t _lightCount,
-                                           const size_t _texCount)
+  inline void createOrUpdateDescriptorPool(const size_t _objCount, const size_t _lightCount)
   {
-    if (_objCount == 0 || _lightCount == 0 || _texCount == 0) return;
-
-    // TODO:
-    //if (_objCount   == m_descriptorPoolSizes[0].descriptorCount &&
-    //    _lightCount == m_descriptorPoolSizes[1].descriptorCount &&
-    //    _texCount   == m_descriptorPoolSizes[2].descriptorCount)
-    //{ // No need to update
-    //  return;
-    //}
+    if (_objCount == 0) return;
 
     auto& bufferManager = MemoryBufferManager::getInstance();
 
@@ -134,9 +124,9 @@ public:
     m_descriptorPoolSizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     m_descriptorPoolSizes[0].descriptorCount = _objCount;
     m_descriptorPoolSizes[1].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    m_descriptorPoolSizes[1].descriptorCount = _lightCount * _objCount;
+    m_descriptorPoolSizes[1].descriptorCount = std::max(_lightCount * _objCount, _objCount);
     m_descriptorPoolSizes[2].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    m_descriptorPoolSizes[2].descriptorCount = _texCount * _objCount;
+    m_descriptorPoolSizes[2].descriptorCount = IMAGES_PER_MATERIAL * _objCount;
 
     m_descriptorPool = bufferManager.createDescriptorPool(m_descriptorPoolSizes.data(),
                                                           m_descriptorPoolSizes.size());

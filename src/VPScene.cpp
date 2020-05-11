@@ -68,8 +68,7 @@ void Scene::scheduledChanges()
 void Scene::recreateSceneDescriptors()
 {
   m_pRenderPipelineManager->createOrUpdateDescriptorPool(m_renderableObjects.size(),
-                                                         m_lights.size() * m_renderableObjects.size(),
-                                                         IMAGES_PER_MATERIAL);
+                                                         m_lights.size() * m_renderableObjects.size());
 
   std::vector<VkBuffer> ubos = {m_mvpnUBO, m_lightsUBO};
   for (auto& object : m_renderableObjects)

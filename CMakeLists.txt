@@ -22,7 +22,7 @@ add_subdirectory(vendor/assimp)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror -std=c++17")
 #set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -ggdb -Wweak-vtables -fexceptions -fsanitize=address")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -ggdb -Wweak-vtables -fexceptions")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory (src/)

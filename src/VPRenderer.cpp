@@ -76,34 +76,14 @@ void Renderer::initVulkan()
 
   // Create the default Material and Pipeline
   this->createGraphicsPipelineManager();
-  this->createMaterial(DEFAULT_VERT, DEFAULT_FRAG, DEFAULT_TEX);
+  this->createMaterial(DEFAULT_VERT, DEFAULT_FRAG);
 
   if (MSAA_ENABLED) this->createColorResources();
   this->createDepthResources();
   this->createFrameBuffers();
 
-  MemoryBufferManager::getInstance().createBuffer(sizeof(LightUBO),
-                                                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                                  &m_lightsUBO,
-                                                  &m_lightsUBOMemory);
-
   this->setupRenderCommands();
   this->createSyncObjects();
-}
-
-uint32_t Renderer::createObject(const char* _modelPath, const glm::mat4& _modelMat)
-{
-  if (m_pMeshes.count(_modelPath) == 0) this->addMesh(_modelPath);
-
-  m_renderableObjects.push_back( StdRenderableObject(_modelMat,
-                                                     m_pMeshes.at(_modelPath),
-                                                     m_pMaterials.at(0)) );
-
-  this->recreateSwapChain(); // FIXME: This is overkill
-
-  return m_renderableObjects.size() - 1;
 }
 
 void Renderer::createSurface()
@@ -146,8 +126,6 @@ void Renderer::drawFrame()
   VkSemaphore signalSemaphores[]    = {m_renderFinishedSemaphores[m_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-  this->updateScene();
-
   VkSubmitInfo submitInfo{};
   submitInfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.waitSemaphoreCount   = 1;
@@ -189,6 +167,7 @@ void Renderer::renderLoop()
 {
   static auto  startTime   = std::chrono::high_resolution_clock::now();
          auto  currentTime = std::chrono::high_resolution_clock::now();
+         float cumulativeTime = 0.0f;
 
   float  moveSpeed   = 10.0f;
   float  rotateSpeed = 10.0f;
@@ -200,12 +179,25 @@ void Renderer::renderLoop()
   userInputCtx.cameraMoveSpeed   = moveSpeed;
   userInputCtx.cameraRotateSpeed = rotateSpeed;
 
+  std::string title("Virtual Phoenix Engine (Vulkan)");
+
+  size_t frameCounter = 0;
   while (!glfwWindowShouldClose(m_pWindow))
   {
+    ++frameCounter;
     currentTime = std::chrono::high_resolution_clock::now();
     m_deltaTime = std::chrono::duration<float, std::chrono::seconds::period>
                   (currentTime - startTime).count();
+    cumulativeTime += m_deltaTime;
     startTime   = currentTime;
+
+    if (cumulativeTime > 1.0f)
+    {
+      auto newTitle = title + " [" + std::to_string(frameCounter) + " fps]";
+      glfwSetWindowTitle(m_pWindow, newTitle.c_str());
+      cumulativeTime = 0.0f;
+      frameCounter = 0;
+    }
 
     userInputCtx.deltaTime = m_deltaTime;
     *m_pUserInputController->m_pScrollY = 0;
@@ -214,6 +206,11 @@ void Renderer::renderLoop()
 
     userInputCtx.scrollY = *m_pUserInputController->m_pScrollY;
     m_pUserInputController->processInput(userInputCtx);
+
+    this->updateCamera();
+    m_scene.update(*m_pCamera, m_deltaTime);
+
+    if (m_scene.anyDescriptorUpdated()) this->setupRenderCommands();
 
     this->drawFrame();
   }
@@ -334,9 +331,6 @@ void Renderer::cleanUpSwapChain()
   for (auto& imageView : m_swapChainImageViews)
     vkDestroyImageView(m_logicalDevice, imageView, nullptr);
 
-  for (auto& obj : m_renderableObjects)
-    obj.cleanUniformBuffers();
-
   vkDestroySwapchainKHR(m_logicalDevice, m_swapChain, nullptr);
 }
 
@@ -361,20 +355,6 @@ void Renderer::recreateSwapChain()
   if (MSAA_ENABLED) this->createColorResources();
   this->createDepthResources();
   this->createFrameBuffers();
-
-  m_pRenderPipelineManager->createDescriptorPool(m_renderableObjects.size(),
-                                                 m_lights.size() * m_renderableObjects.size(),
-                                                 m_renderableObjects.size());
-
-  // NOTE: Right now this is overkill, but it will come handy if we use a single buffer for all
-  //       objects' MVPNs
-  m_pRenderPipelineManager->recreateLayouts(m_lights.size());
-
-  for (auto& object : m_renderableObjects)
-  {
-    object.createUniformBuffers();
-    m_pRenderPipelineManager->createOrUpdateDescriptorSet(&object, m_lightsUBO, m_lights.size());
-  }
 
   this->setupRenderCommands();
 }
@@ -474,7 +454,9 @@ void Renderer::createRenderPass()
 
 void Renderer::createGraphicsPipelineManager()
 {
-  m_pRenderPipelineManager.reset( new StdRenderPipelineManager(m_renderPass, m_lights.size()) );
+  m_pRenderPipelineManager.reset( new StdRenderPipelineManager(m_renderPass, m_scene.getLightCount()) );
+
+  m_scene.setRenderPipelineManager(m_pRenderPipelineManager);
 }
 
 void Renderer::createFrameBuffers()
@@ -540,14 +522,18 @@ void Renderer::setupRenderCommands()
                          &renderPassInfo,
                          VK_SUBPASS_CONTENTS_INLINE);
 
-    for (const auto& object : m_renderableObjects)
+    for (const auto& object : m_scene.m_renderableObjects)
     {
+      auto mesh = m_scene.getObjectMesh(object);
+      if (mesh.get() == nullptr) continue;
+
+      const int numLights = m_scene.getLightCount();
+
       vkCmdBindPipeline(commandBufferManager.getBufferAt(i),
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
                         m_pRenderPipelineManager->getOrCreatePipeline(m_swapChainExtent,
                                                                       *object.m_pMaterial));
 
-      const int numLights = m_lights.size();
       vkCmdPushConstants(commandBufferManager.getBufferAt(i),
                          m_pRenderPipelineManager->getPipelineLayout(),
                          VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -556,12 +542,12 @@ void Renderer::setupRenderCommands()
                          &numLights);
 
       // Bind the vertex buffers
-      VkBuffer     vertexBuffers[] = {object.m_pMesh->m_vertexBuffer};
+      VkBuffer     vertexBuffers[] = {mesh->m_vertexBuffer};
       VkDeviceSize offsets[]       = {0};
       vkCmdBindVertexBuffers(commandBufferManager.getBufferAt(i), 0, 1, vertexBuffers, offsets);
 
       vkCmdBindIndexBuffer(commandBufferManager.getBufferAt(i),
-                           object.m_pMesh->m_indexBuffer,
+                           mesh->m_indexBuffer,
                            0,
                            VK_INDEX_TYPE_UINT32);
 
@@ -575,46 +561,11 @@ void Renderer::setupRenderCommands()
                               nullptr);
 
       vkCmdDrawIndexed(commandBufferManager.getBufferAt(i),
-                       object.m_pMesh->m_indices.size(),
+                       mesh->m_indices.size(),
                        1, 0, 0, 0);
     }
 
     commandBufferManager.endRecordingCommand(i);
-  }
-}
-
-void Renderer::updateScene()
-{
-  //updateLights();
-  this->updateObjects();
-}
-
-void Renderer::updateLights()
-{ // TODO:
-}
-
-void Renderer::updateObjects()
-{
-  if (!m_pCamera) m_pCamera.reset( new Camera() );
-
-  m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
-                             static_cast<float>(m_swapChainExtent.height) );
-
-  ModelViewProjNormalUBO mvpnUBO{};
-  mvpnUBO.view = m_pCamera->getViewMat();
-  mvpnUBO.proj = m_pCamera->getProjMat();
-
-  for (auto& object : m_renderableObjects)
-  {
-    object.update(m_deltaTime);
-
-    mvpnUBO.modelView = mvpnUBO.view * object.m_model;
-    mvpnUBO.normal    = glm::transpose(glm::inverse(mvpnUBO.modelView));
-
-    // TODO: Update just the needed fields instead of everything
-    MemoryBufferManager::getInstance().copyToBufferMemory(&mvpnUBO,
-                                                          object.m_uniformBufferMemory,
-                                                          sizeof(mvpnUBO));
   }
 }
 
@@ -747,16 +698,10 @@ void Renderer::cleanUp()
 
   this->cleanUpSwapChain();
 
-  for (auto& obj         : m_renderableObjects) obj.cleanUp();
-  for (auto& pathAndMesh : m_pMeshes)           pathAndMesh.second.reset();
-  for (auto& mat         : m_pMaterials)        mat.reset();
-
-  vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
-  vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
-
+  m_scene.cleanUp();
   m_pRenderPipelineManager.reset();
 
-  CommandBufferManager::getInstance().destroyCommandPool();
+  CommandBufferManager::getInstance().cleanUp();
 
   vkDestroyDevice(m_logicalDevice, nullptr);
   vkDestroySurfaceKHR(m_vkInstance, m_surface, nullptr);

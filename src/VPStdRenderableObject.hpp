@@ -1,6 +1,7 @@
 #ifndef VP_RENDERABLE_OBJECT_HPP
 #define VP_RENDERABLE_OBJECT_HPP
 
+#include "VPTransform.hpp"
 #include "VPMaterial.hpp"
 #include "VPMesh.hpp"
 
@@ -16,46 +17,32 @@ struct alignas(32) ModelViewProjNormalUBO
 
 class StdRenderableObject
 {
-friend class Renderer;
+friend class Scene;
 
 private:
   StdRenderableObject() = delete;
-  StdRenderableObject(const glm::mat4&  _model,
-                      std::shared_ptr<Mesh>& _mesh,
+  StdRenderableObject(uint32_t _idx,
+                      std::string _meshPath,
                       std::shared_ptr<StdMaterial>& _pMaterial) :
-    m_model(_model),
-    m_pMesh(_mesh),
+    m_UBOoffsetIdx(_idx),
+    m_meshPath(_meshPath),
     m_pMaterial(_pMaterial),
     m_descriptorSet(VK_NULL_HANDLE),
-    m_updateCallback( [](const float, glm::mat4&){} )
-  {
-    this->createUniformBuffers();
-  };
+    m_updateCallback( [](const float, Transform&){} )
+  {};
 
 public:
-  // TODO: Transform
-  glm::mat4      m_model;
-  VkBuffer       m_uniformBuffer;
-  VkDeviceMemory m_uniformBufferMemory;
+  uint32_t  m_UBOoffsetIdx;
+  Transform m_transform;
 
   // Misc
-  std::shared_ptr<Mesh>        m_pMesh;
-  std::shared_ptr<StdMaterial> m_pMaterial;
+  std::string m_meshPath;
+  std::shared_ptr<StdMaterial> m_pMaterial; // TODO: Change this for its index?
   VkDescriptorSet              m_descriptorSet;
 
-  std::function<void(const float, glm::mat4&)> m_updateCallback;
+  std::function<void(const float, Transform&)> m_updateCallback;
 
-  inline void update(const float _deltaTime) { m_updateCallback(_deltaTime, m_model); }
-
-  inline void createUniformBuffers()
-  {
-    MemoryBufferManager::getInstance().createBuffer(sizeof(ModelViewProjNormalUBO),
-                                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                                    &m_uniformBuffer,
-                                                    &m_uniformBufferMemory);
-  }
+  inline void update(const float _deltaTime) { m_updateCallback(_deltaTime, m_transform); }
 
   inline void setMaterial(std::shared_ptr<StdMaterial>& _newMat)
   {
@@ -63,25 +50,12 @@ public:
     m_pMaterial = _newMat;
   }
 
-  inline void setMesh(std::shared_ptr<Mesh>& _newMesh)
+  inline void setMesh(const char* _meshPath)
   {
-    m_pMesh.reset();
-    m_pMesh = _newMesh;
+    m_meshPath.replace(0, m_meshPath.size(), _meshPath);
   }
 
-  inline void cleanUniformBuffers()
-  {
-    const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-
-    vkDestroyBuffer(logicalDevice, m_uniformBuffer, nullptr);
-    vkFreeMemory(logicalDevice, m_uniformBufferMemory, nullptr);
-  }
-
-  inline void cleanUp()
-  {
-    m_pMesh.reset();
-    m_pMaterial.reset();
-  }
+  inline void cleanUp() { m_pMaterial.reset(); }
 };
 }
 #endif

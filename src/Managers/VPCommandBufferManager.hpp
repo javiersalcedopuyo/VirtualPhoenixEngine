@@ -1,5 +1,5 @@
 #ifndef VP_COMMAND_BUFFER_MANAGER_HPP
-#define VP_COMMAND_BUFFER_MANAGER_HHP
+#define VP_COMMAND_BUFFER_MANAGER_HPP
 
 #include <vulkan/vulkan.h>
 #include <optional>
@@ -51,15 +51,16 @@ public:
     m_commandPool = VK_NULL_HANDLE;
   }
 
-private:
-
-  CommandBufferManager() : m_pLogicalDevice(nullptr), m_commandPool(VK_NULL_HANDLE) {};
-  ~CommandBufferManager()
+  inline void cleanUp()
   {
     if (m_commandPool != VK_NULL_HANDLE) destroyCommandPool();
     m_pLogicalDevice = nullptr;
     m_pQueue         = nullptr;
   }
+
+private:
+  CommandBufferManager() : m_pLogicalDevice(nullptr), m_commandPool(VK_NULL_HANDLE) {}
+  ~CommandBufferManager() {}
 
   VkCommandPool                m_commandPool;
   std::vector<VkCommandBuffer> m_commandBuffers; // Destroyed alongside m_commandPool

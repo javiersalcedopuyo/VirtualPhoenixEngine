@@ -12,31 +12,38 @@
 
 namespace vpe
 {
-const char* const DEFAULT_VERT = "../src/Shaders/vert.spv";
-const char* const DEFAULT_FRAG = "../src/Shaders/frag.spv";
-const char* const DEFAULT_TEX  = "../Textures/Default.png";
+constexpr uint8_t IMAGES_PER_MATERIAL = 2;
 
 struct StdMaterial
 {
-  StdMaterial() : pTexture(nullptr)
+  StdMaterial() = delete;
+
+  StdMaterial(const char* _vert, const char* _frag) :
+    pTexture(nullptr),
+    pNormalMap(nullptr)
   {
-    init(DEFAULT_VERT, DEFAULT_FRAG, DEFAULT_TEX);
+    vertShaderCode = resourcesLoader::parseShaderFile(_vert);
+    fragShaderCode = resourcesLoader::parseShaderFile(_frag);
+    changeTexture(DEFAULT_TEX);
+    changeNormalMap(EMPTY_TEX);
+
+    hash = hashFn( {_vert, _frag, std::to_string(IMAGES_PER_MATERIAL).c_str()} );
   };
 
-  StdMaterial(const char* _vert, const char* _frag, const char* _tex) : pTexture(nullptr)
+  ~StdMaterial()
   {
-    init(_vert, _frag, _tex);
-  };
-
-  ~StdMaterial() { cleanUp(); }
+    pTexture.reset();
+    pNormalMap.reset();
+  }
 
   std::unique_ptr<Image> pTexture;
+  std::unique_ptr<Image> pNormalMap;
   size_t hash;
 
   std::vector<char> vertShaderCode;
   std::vector<char> fragShaderCode;
 
-  static inline size_t hashFn(std::vector<const char*> _input)
+  static inline size_t hashFn(const std::vector<const char*>& _input)
   {
     std::hash<std::string> stringHash;
 
@@ -46,22 +53,8 @@ struct StdMaterial
     return stringHash(id);
   }
 
-  inline void init(const char* _vert, const char* _frag, const char* _tex)
-  {
-    vertShaderCode = resourcesLoader::parseShaderFile(_vert);
-    fragShaderCode = resourcesLoader::parseShaderFile(_frag);
-    changeTexture(_tex);
-
-    const char* textureCount = "1";
-    hash = hashFn( {_vert, _frag, textureCount} );
-  }
-
-  inline void changeTexture(const char* _texturePath)
-  {
-    pTexture.reset( new Image(_texturePath) );
-  }
-
-  inline void cleanUp() { pTexture.reset(); }
+  inline void changeTexture(const char* _path) { pTexture.reset( new Image(_path) ); }
+  inline void changeNormalMap(const char* _path) { pNormalMap.reset( new Image(_path) ); }
 };
 }
 #endif

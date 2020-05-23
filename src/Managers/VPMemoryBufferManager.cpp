@@ -26,7 +26,7 @@ void MemoryBufferManager::createBuffer(const VkDeviceSize          _size,
                                              VkBuffer*             _pBuffer,
                                              VkDeviceMemory*       _pBufferMemory)
 {
-  if (!m_pLogicalDevice || !m_pPhysicalDevice || !_pBuffer || !_pBufferMemory) return;
+  if (!m_pLogicalDevice || !m_pPhysicalDevice || !_pBuffer || !_pBufferMemory || _size == 0) return;
 
   VkBufferCreateInfo bufferInfo{};
   bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

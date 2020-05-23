@@ -30,8 +30,7 @@
 #include <functional>
 
 #include "Managers/VPDeviceManagement.hpp"
-#include "Managers/VPStdRenderPipelineManager.hpp"
-#include "VPCamera.hpp"
+#include "VPScene.hpp"
 #include "VPUserInputController.hpp"
 
 namespace vpe
@@ -42,9 +41,9 @@ constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 constexpr uint32_t DEFAULT_MATERIAL_IDX = 0;
 
-constexpr VkClearColorValue CLEAR_COLOR_BLACK = {0.0f,  0.0f,  0.0f,  1.0f};
-constexpr VkClearColorValue CLEAR_COLOR_GREY  = {0.25f, 0.25f, 0.25f, 1.0f};
-constexpr VkClearColorValue CLEAR_COLOR_SKY   = {0.53f, 0.81f, 0.92f, 1.0f};
+constexpr VkClearColorValue CLEAR_COLOR_BLACK {{0.0f,  0.0f,  0.0f,  1.0f}};
+constexpr VkClearColorValue CLEAR_COLOR_GREY  {{0.25f, 0.25f, 0.25f, 1.0f}};
+constexpr VkClearColorValue CLEAR_COLOR_SKY   {{0.53f, 0.81f, 0.92f, 1.0f}};
 
 inline VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& _availableFormats)
 {
@@ -90,59 +89,54 @@ public:
   void renderLoop();
   void cleanUp();
 
-  uint32_t addLight(Light& _light)
+  // TODO: Merge both into addSceneObject
+  inline uint32_t addLight(Light& _light)
   {
-    uint32_t   idx     = m_lights.size();
-    const auto uboSize = sizeof(LightUBO);
-
-    m_lights.emplace_back(_light.type, idx, _light.ubo);
-
-    vkDestroyBuffer(m_logicalDevice, m_lightsUBO, nullptr);
-    vkFreeMemory(m_logicalDevice, m_lightsUBOMemory, nullptr);
-
-    auto& bufferManager = MemoryBufferManager::getInstance();
-    bufferManager.createBuffer(uboSize * m_lights.size(),
-                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                               &m_lightsUBO,
-                               &m_lightsUBOMemory);
-
-    for (auto& light : m_lights)
-      bufferManager.copyToBufferMemory(&light.ubo, m_lightsUBOMemory, uboSize, uboSize * light.idx);
-
-    this->recreateSwapChain(); // FIXME: Overkill
-
-    return idx;
+    return m_scene.scheduleLightCreation(_light);
   }
 
-  uint32_t createObject(const char* _modelPath, const glm::mat4& _modelMat);
-
-  inline void addMesh(const char* _path)
+  inline uint32_t createObject(const char* _meshPath)
   {
-    if (m_pMeshes.count(_path) > 0) return;
-
-    m_pMeshes.emplace( _path, new Mesh(_path) );
+    return m_scene.scheduleObjCreation(_meshPath);
   }
+  // TODO: deleteSceneObject
 
   inline uint32_t createMaterial(const char* _vertShaderPath,
-                                 const char* _fragShaderPath,
-                                 const char* _texturePath)
+                                 const char* _fragShaderPath)
   {
-    m_pMaterials.emplace_back(new StdMaterial(_vertShaderPath, _fragShaderPath, _texturePath));
-    return m_pMaterials.size() - 1;
+    return m_scene.createMaterial(_vertShaderPath, _fragShaderPath);
   }
 
-  inline void loadTextureToMaterial(const char* _path, const uint32_t _matIdx)
+  inline void setMaterialTexture(const uint32_t _matIdx, const char* _path)
   {
-    m_pMaterials.at(_matIdx)->changeTexture(_path);
-    this->recreateSwapChain(); // FIXME: Overkill?
+    m_scene.scheduleMaterialImageChange(_matIdx, _path, DescriptorFlags::TEXTURE);
+  }
+
+  inline void setMaterialNormalMap(const uint32_t _matIdx, const char* _path)
+  {
+    m_scene.scheduleMaterialImageChange(_matIdx, _path, DescriptorFlags::NORMAL_MAP);
+  }
+
+  inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
+  {
+    m_scene.scheduleObjMaterialChange(_objIdx, _matIdx);
+  }
+
+  inline void setObjUpdateCB(const uint32_t _objIdx,
+                             std::function<void(const float, Transform&)> _callback)
+  {
+    m_scene.scheduleObjCBChange(_objIdx, _callback);
+  }
+
+  inline void transformObject(const uint32_t _objIdx, glm::vec3 _value, TransformOperation _op)
+  {
+    m_scene.scheduleObjTransform(_objIdx, _value, _op);
   }
 
   inline GLFWwindow* getActiveWindow() { return m_pWindow; }
 
   inline void setCamera(glm::vec3 _position, glm::vec3 _forward, glm::vec3 _up,
-                        float _fov = 45.0f,  float _far = 10.0f, float _near = 0.1f)
+                        float _near = 0.1f, float _far = 10.0f,  float _fov = 45.0f)
   {
     if (m_pCamera == nullptr)
     {
@@ -160,26 +154,13 @@ public:
     }
   }
 
-  inline void setObjMaterial(const uint32_t _objIdx, const uint32_t _matIdx)
-  {
-    if (_objIdx >= m_renderableObjects.size()) return;
-
-    m_renderableObjects.at(_objIdx).setMaterial( m_pMaterials.at(_matIdx) );
-    this->recreateSwapChain(); // FIXME: This is overkill
-  }
-
-  inline void setObjUpdateCB(const uint32_t _objIdx,
-                             std::function<void(const float, glm::mat4&)> _callback)
-  {
-    if (_objIdx >= m_renderableObjects.size()) return;
-    m_renderableObjects.at(_objIdx).m_updateCallback = _callback;
-  }
-
 private:
   GLFWwindow*             m_pWindow;
 
   std::shared_ptr<Camera> m_pCamera; // TODO: Multi-camera
   VkSurfaceKHR            m_surface;
+
+  Scene m_scene;
 
   float m_deltaTime;
 
@@ -199,7 +180,7 @@ private:
   std::vector<VkImageView> m_swapChainImageViews;
 
   VkRenderPass m_renderPass;
-  std::unique_ptr<StdRenderPipelineManager> m_pRenderPipelineManager;
+  std::shared_ptr<StdRenderPipelineManager> m_pRenderPipelineManager;
   std::vector<VkFramebuffer> m_swapChainFrameBuffers;
 
   size_t m_currentFrame;
@@ -207,15 +188,6 @@ private:
   std::vector<VkSemaphore> m_renderFinishedSemaphores;
   std::vector<VkFence>     m_inFlightFences;
   std::vector<VkFence>     m_imagesInFlight;
-
-  std::vector<Light> m_lights;
-  std::vector<StdRenderableObject> m_renderableObjects;
-  std::vector<std::shared_ptr<StdMaterial>> m_pMaterials;
-  std::unordered_map<const char*, std::shared_ptr<Mesh>> m_pMeshes;
-  // TODO: Texture map
-
-  VkBuffer       m_lightsUBO;
-  VkDeviceMemory m_lightsUBOMemory;
 
   VkImage        m_depthImage;
   VkDeviceMemory m_depthMemory;
@@ -256,9 +228,13 @@ private:
   // Shaders
   VkShaderModule createShaderModule(const std::vector<char>& _code);
 
-  void updateScene();
-  void updateLights();
-  void updateObjects();
+  inline void updateCamera()
+  {
+    if (!m_pCamera) m_pCamera.reset( new Camera() );
+
+    m_pCamera->setAspectRatio( static_cast<float>(m_swapChainExtent.width) /
+                              static_cast<float>(m_swapChainExtent.height) );
+  }
 
   void     createDepthResources();
   VkFormat findDepthFormat();

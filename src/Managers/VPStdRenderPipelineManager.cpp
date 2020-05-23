@@ -19,7 +19,7 @@ VkShaderModule StdRenderPipelineManager::createShaderModule(const std::vector<ch
   return result;
 }
 
-void StdRenderPipelineManager::createLayouts(const size_t _lightCount)
+void StdRenderPipelineManager::createLayout(const size_t _lightCount)
 {
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
 
@@ -37,18 +37,28 @@ void StdRenderPipelineManager::createLayouts(const size_t _lightCount)
   lightsLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
   lightsLayoutBinding.pImmutableSamplers = nullptr; // Only relevant for image sampling
 
-  VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-  samplerLayoutBinding.binding            = 2;
-  samplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  samplerLayoutBinding.descriptorCount    = 1;
-  samplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
-  samplerLayoutBinding.pImmutableSamplers = nullptr;
+  // Albedo texture
+  VkDescriptorSetLayoutBinding textureSamplerLayoutBinding{};
+  textureSamplerLayoutBinding.binding            = 2;
+  textureSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  textureSamplerLayoutBinding.descriptorCount    = 1;
+  textureSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+  textureSamplerLayoutBinding.pImmutableSamplers = nullptr;
+
+  // Normal map
+  VkDescriptorSetLayoutBinding normalMapSamplerLayoutBinding{};
+  normalMapSamplerLayoutBinding.binding            = 3;
+  normalMapSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  normalMapSamplerLayoutBinding.descriptorCount    = 1;
+  normalMapSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+  normalMapSamplerLayoutBinding.pImmutableSamplers = nullptr;
 
   std::array<VkDescriptorSetLayoutBinding, BINDING_COUNT> bindings =
   {
     mvpLayoutBinding,
     lightsLayoutBinding,
-    samplerLayoutBinding
+    textureSamplerLayoutBinding,
+    normalMapSamplerLayoutBinding
   };
 
   VkDescriptorSetLayoutCreateInfo dsLayoutInfo{};
@@ -78,18 +88,11 @@ void StdRenderPipelineManager::createLayouts(const size_t _lightCount)
     throw std::runtime_error("ERROR: VPStdRenderPipeline::createLayouts - Failed to create the pipeline layout!");
 }
 
-void StdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* _obj,
-                                                           VkBuffer& _lightsUBO,
-                                                           const size_t _lightCount)
+void StdRenderPipelineManager::createDescriptorSet(VkDescriptorSet* _pDescriptorSet)
 {
-  if (_obj == nullptr) return;
+  if (_pDescriptorSet == nullptr || m_descriptorPool == VK_NULL_HANDLE) return;
 
   const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
-
-  //if (m_descriptorPool == VK_NULL_HANDLE)
-  //  createDescriptorPool( m_descriptorPoolSizes[0].descriptorCount + 1,
-  //                        _lightCount,
-  //                        m_descriptorPoolSizes[0].descriptorCount + 1 );
 
   VkDescriptorSetAllocateInfo allocInfo{};
   allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -97,63 +100,80 @@ void StdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* 
   allocInfo.descriptorSetCount = 1;
   allocInfo.pSetLayouts        = &m_descriptorSetLayout;
 
-  if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &_obj->m_descriptorSet) != VK_SUCCESS)
-    throw std::runtime_error("ERROR: VPStdRenderPipeline::createDescriptorSets - Failed!");
+  if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, _pDescriptorSet) != VK_SUCCESS)
+    throw std::runtime_error("ERROR: VPStdRenderPipeline::createDescriptorSet - Failed!");
+}
 
-  // Populate descriptor set
-  // TODO: Use a single common UBO with offsets
-  VkDescriptorBufferInfo mvpnInfo{};
-  mvpnInfo.buffer = _obj->m_uniformBuffer;
-  mvpnInfo.offset = 0;
-  mvpnInfo.range  = VK_WHOLE_SIZE; // TODO: Update just the needed
+void StdRenderPipelineManager::updateObjDescriptorSet(std::vector<VkBuffer>& _UBOs,
+                                                      const size_t _lightCount,
+                                                      const DescriptorFlags _flags,
+                                                      StdRenderableObject* _obj)
+{
+  if (_obj == nullptr) return;
 
-  std::vector<VkDescriptorBufferInfo> lightsInfo;
-  lightsInfo.resize(_lightCount);
-  for (size_t i=0; i<lightsInfo.size(); ++i)
+  const VkDevice& logicalDevice = *MemoryBufferManager::getInstance().m_pLogicalDevice;
+
+  std::vector<VkWriteDescriptorSet>   descriptorWrites{};
+  VkDescriptorBufferInfo              mvpnInfo{};
+  VkDescriptorImageInfo               textureInfo{};
+  VkDescriptorImageInfo               normalMapInfo{};
+  std::vector<VkDescriptorBufferInfo> lightsInfo{};
+
+  if (_flags & DescriptorFlags::MATRICES)
   {
-    lightsInfo.at(i).buffer = _lightsUBO;
-    lightsInfo.at(i).offset = i * sizeof(LightUBO);
-    lightsInfo.at(i).range  = sizeof(LightUBO);
+    mvpnInfo.buffer = _UBOs.at(0);
+    mvpnInfo.offset = _obj->m_UBOoffsetIdx * sizeof(ModelViewProjNormalUBO);
+    mvpnInfo.range  = sizeof(ModelViewProjNormalUBO);
+
+    auto ds = this->createWriteDescriptorSet(DescriptorFlags::MATRICES,
+                                             0, 1,
+                                             _obj->m_descriptorSet,
+                                             &mvpnInfo);
+    descriptorWrites.push_back(ds);
   }
 
-  VkDescriptorImageInfo imageInfo{};
-  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  imageInfo.imageView   = _obj->m_pMaterial->pTexture->getImageView();
-  imageInfo.sampler     = _obj->m_pMaterial->pTexture->getSampler();
+  if (_flags & DescriptorFlags::LIGHTS && _lightCount > 0)
+  {
+    lightsInfo.resize(_lightCount);
+    for (size_t i=0; i<lightsInfo.size(); ++i)
+    {
+      lightsInfo.at(i).buffer = _UBOs.at(1);
+      lightsInfo.at(i).offset = i * sizeof(LightUBO);
+      lightsInfo.at(i).range  = sizeof(LightUBO);
+    }
 
-  // TODO: Normal map
+    auto ds = this->createWriteDescriptorSet(DescriptorFlags::LIGHTS,
+                                             1, lightsInfo.size(),
+                                             _obj->m_descriptorSet,
+                                             lightsInfo.data());
+    descriptorWrites.push_back(ds);
+  }
 
-  std::array<VkWriteDescriptorSet, BINDING_COUNT> descriptorWrites{};
-  // MVPN matrices
-  descriptorWrites[0].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[0].dstSet               = _obj->m_descriptorSet;
-  descriptorWrites[0].dstBinding           = 0;
-  descriptorWrites[0].dstArrayElement      = 0; // Descriptors can be arrays. First index
-  descriptorWrites[0].descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptorWrites[0].descriptorCount      = 1;
-  descriptorWrites[0].pBufferInfo          = &mvpnInfo;
-  descriptorWrites[0].pImageInfo           = nullptr;
-  descriptorWrites[0].pTexelBufferView     = nullptr;
-  // Lights
-  descriptorWrites[1].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[1].dstSet               = _obj->m_descriptorSet;
-  descriptorWrites[1].dstBinding           = 1;
-  descriptorWrites[1].dstArrayElement      = 0; // Descriptors can be arrays. First index
-  descriptorWrites[1].descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptorWrites[1].descriptorCount      = lightsInfo.size();
-  descriptorWrites[1].pBufferInfo          = lightsInfo.data();
-  descriptorWrites[1].pImageInfo           = nullptr;
-  descriptorWrites[1].pTexelBufferView     = nullptr;
-  // Texture
-  descriptorWrites[2].sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrites[2].dstSet               = _obj->m_descriptorSet;
-  descriptorWrites[2].dstBinding           = 2;
-  descriptorWrites[2].dstArrayElement      = 0; // Descriptors can be arrays. First index
-  descriptorWrites[2].descriptorType       = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptorWrites[2].descriptorCount      = 1;
-  descriptorWrites[2].pBufferInfo          = nullptr;
-  descriptorWrites[2].pImageInfo           = &imageInfo;
-  descriptorWrites[2].pTexelBufferView     = nullptr;
+  if (_flags & DescriptorFlags::TEXTURE)
+  {
+    textureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    textureInfo.imageView   = _obj->m_pMaterial->pTexture->getImageView();
+    textureInfo.sampler     = _obj->m_pMaterial->pTexture->getSampler();
+
+    auto ds = this->createWriteDescriptorSet(DescriptorFlags::TEXTURE,
+                                             2, 1,
+                                             _obj->m_descriptorSet,
+                                             &textureInfo);
+    descriptorWrites.push_back(ds);
+  }
+
+  if (_flags & DescriptorFlags::NORMAL_MAP)
+  {
+    normalMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    normalMapInfo.imageView   = _obj->m_pMaterial->pNormalMap->getImageView();
+    normalMapInfo.sampler     = _obj->m_pMaterial->pNormalMap->getSampler();
+
+    auto ds = this->createWriteDescriptorSet(DescriptorFlags::NORMAL_MAP,
+                                             3, 1,
+                                             _obj->m_descriptorSet,
+                                             &normalMapInfo);
+    descriptorWrites.push_back(ds);
+  }
 
   vkUpdateDescriptorSets(logicalDevice,
                          descriptorWrites.size(),
@@ -162,9 +182,50 @@ void StdRenderPipelineManager::createOrUpdateDescriptorSet(StdRenderableObject* 
                          nullptr);
 }
 
-void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
+VkWriteDescriptorSet
+StdRenderPipelineManager::createWriteDescriptorSet(const DescriptorFlags _type,
+                                                   const uint32_t _binding,
+                                                   const uint32_t _descriptorCount,
+                                                   const VkDescriptorSet& _descriptorSet,
+                                                   std::any _pInfo)
 {
-  VkViewport* viewport = new VkViewport
+  VkWriteDescriptorSet result{};
+  result.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  result.dstSet           = _descriptorSet;
+  result.dstBinding       = _binding;
+  result.dstArrayElement  = 0;
+  result.descriptorCount  = _descriptorCount;
+  result.pBufferInfo      = nullptr;
+  result.pImageInfo       = nullptr;
+  result.pTexelBufferView = nullptr;
+
+  switch (_type)
+  {
+    case DescriptorFlags::LIGHTS:
+    case DescriptorFlags::MATRICES:
+    case DescriptorFlags::MATERIAL_DATA:
+      result.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      result.pBufferInfo    = std::any_cast<VkDescriptorBufferInfo*>(_pInfo);
+      break;
+
+    case DescriptorFlags::TEXTURE:
+    case DescriptorFlags::NORMAL_MAP:
+      result.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+      result.pImageInfo     = std::any_cast<VkDescriptorImageInfo*>(_pInfo);
+      break;
+
+    default:
+      break;
+  }
+
+  return result;
+}
+
+void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent,
+                                                   VkViewport& _viewport,
+                                                   VkRect2D& _scissor)
+{
+  _viewport =
   {
     0.0f,
     0.0f,
@@ -175,7 +236,7 @@ void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
   };
 
   // Draw the full viewport
-  VkRect2D* scissor = new VkRect2D
+  _scissor =
   {
     {0,0},
     _extent
@@ -185,9 +246,9 @@ void StdRenderPipelineManager::updateViewportState(const VkExtent2D& _extent)
   m_viewportState               = {};
   m_viewportState.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   m_viewportState.viewportCount = 1;
-  m_viewportState.pViewports    = viewport;
+  m_viewportState.pViewports    = &_viewport;
   m_viewportState.scissorCount  = 1;
-  m_viewportState.pScissors     = scissor;
+  m_viewportState.pScissors     = &_scissor;
 }
 
 void StdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const StdMaterial& _material)
@@ -235,7 +296,9 @@ void StdRenderPipelineManager::createPipeline(const VkExtent2D& _extent, const S
   inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-  this->updateViewportState(_extent);
+  VkViewport viewport;
+  VkRect2D   scissor;
+  this->updateViewportState(_extent, viewport, scissor);
 
   // Rasterizer
   // depthClamp: Clamps instead of discarding the fragments out of the frustrum.

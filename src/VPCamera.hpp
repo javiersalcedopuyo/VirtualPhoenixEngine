@@ -5,18 +5,12 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #endif
 
+#include "VPTransform.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 namespace vpe
 {
-constexpr glm::vec3 UP    = glm::vec3( 0.0f,  1.0f,  0.0f);
-constexpr glm::vec3 DOWN  = glm::vec3( 0.0f, -1.0f,  0.0f);
-constexpr glm::vec3 LEFT  = glm::vec3(-1.0f,  0.0f,  0.0f);
-constexpr glm::vec3 RIGHT = glm::vec3( 1.0f,  0.0f,  0.0f);
-constexpr glm::vec3 FRONT = glm::vec3( 0.0f,  0.0f,  1.0f);
-constexpr glm::vec3 BACK  = glm::vec3( 0.0f,  0.0f, -1.0f);
-
 class Camera
 {
 public:
@@ -51,48 +45,59 @@ public:
 
   inline void setNear(float _near, bool _shouldUpdateProj = true)
   {
+    if (_near == near) return;
+
     near = _near;
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setFar(float _far, bool _shouldUpdateProj = true)
   {
+    if (_far == far) return;
+
     far = _far;
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setFoV(float _fov, bool _shouldUpdateProj = true)
   {
+    if (_fov == fieldOfView) return;
+
     fieldOfView = glm::radians(_fov);
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setAspectRatio(float _aspectRatio, bool _shouldUpdateProj = true)
   {
+    if (_aspectRatio == aspectRatio) return;
+
     aspectRatio = _aspectRatio;
     if (_shouldUpdateProj) updateProjection();
   }
 
   inline void setPosition(glm::vec3 _newPos, bool _shouldUpdateView = true)
   {
-    position = _newPos;
+    if(_newPos == position) return;
 
+    position = _newPos;
     if (_shouldUpdateView)
       view = glm::lookAt(position, position + forward, up);
   }
 
   inline void setForward(glm::vec3 _newForward, bool _shouldUpdateView = true)
   {
-    forward = _newForward;
+    if (_newForward == forward) return;
 
+    forward = _newForward;
     if (_shouldUpdateView)
       view = glm::lookAt(position, position + forward, up);
   }
 
   inline void setUp(glm::vec3 _newUp, bool _shouldUpdateView = true)
   {
-    up = _newUp;
+    if (_newUp == up) return;
 
+    up = _newUp;
     if (_shouldUpdateView)
       view = glm::lookAt(position, position + forward, up);
   }
@@ -121,8 +126,8 @@ public:
     view    = glm::lookAt(position, position + forward, up);
   }
 
-  inline glm::mat4 getProjMat()  const { return projection; }
-  inline glm::mat4 getViewMat()  const { return view; }
+  inline const glm::mat4& getProjMat() const { return projection; }
+  inline const glm::mat4& getViewMat() const { return view; }
 
 private:
 
@@ -130,6 +135,7 @@ private:
   float     far;
   float     fieldOfView;
   float     aspectRatio;
+  Transform transform;
   glm::vec3 position;
   glm::vec3 forward;
   glm::vec3 up;

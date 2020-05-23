@@ -51,7 +51,7 @@ public:
     m_imageView(VK_NULL_HANDLE),
     m_sampler(VK_NULL_HANDLE)
   {
-    createFromFile(_path);
+    this->createFromFile(_path);
   }
 
   ~Image() { cleanUp(); }
